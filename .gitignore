@@ -1,0 +1,14 @@
+# c++
+*.so
+*.a
+*.lo
+*.o
+
+# python
+*.pyc
+
+# java
+*.class
+*.iml
+
+
