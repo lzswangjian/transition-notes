@@ -1,0 +1,47 @@
+// Protocol buffer specification for document analysis.
+
+syntax = "proto2";
+
+package syntaxnet;
+
+message Sentence {
+  optional string docid = 1;
+
+  optional string text = 2;
+
+  repeated Token token = 3;
+
+  extensions 1000 to max;
+}
+
+message Token {
+  // Token word form.
+  required string word = 1;
+
+  // Start position of token in text.
+  required int32 start = 2;
+
+  required int32 end = 3;
+
+  optional int32 head = 4 [default = -1];
+
+  // Part-of-Speech tag for token.
+  optional string tag = 5;
+
+  // Coarse-grained word category for token.
+  optional string category = 6;
+
+  // Label for dependency relation between this token and its head.
+  optional string label = 7;
+
+  enum BreakLevel {
+    NO_BREAK = 0;
+    SPACE_BREAK = 1;
+    LINE_BREAK = 2;
+    SENTENCE_BREAK = 3;
+  }
+
+  optional BreakLevel break_level = 8 [default = SPACE_BREAK];
+
+  extensions 1000 to max;
+}

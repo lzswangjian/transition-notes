@@ -1,0 +1,61 @@
+syntax = "proto2";
+
+package syntaxnet;
+
+// Task input descriptor
+message TaskInput {
+  required string name = 1;
+
+  optional string creator = 2;o
+
+  repeated string file_format = 3;
+
+  repeated string record_format = 4;
+
+  optional bool multi_file = 5 [default = false];
+
+  repeated group Part = 6 {
+    optional string file_pattern = 7;
+
+    optional string file_format = 8;
+
+    optional string record_format = 9;
+  }
+}
+
+// Task output descriptor
+message TaskOutput {
+  required string name = 1;
+
+  optional string file_format = 2;
+
+  optional string record_format = 3;
+
+  // Number of shards in output. If this is different from zero
+  // this output is sharded. If the number of shards is set to -1
+  // this means that the output is sharded, but the number of shard
+  // is unknown. The files are then named 'base-*-of-*'.
+  optional int32 shards = 4 [default = 0];
+
+  optional string file_base = 5;
+
+  optional string file_extension = 6;
+}
+
+// A task specification is used for describing executing parameters.
+message TaskSpec {
+  optional string task_name = 1;
+
+  optional string task_type = 2;
+
+  repeated group Parameters = 3 {
+    required string name = 4;
+    optional string value = 5;
+  }
+
+  // Task inputs.
+  repeated TaskInput input = 6;
+
+  // Task outputs
+  repeated TaskOutput output = 7;
+}

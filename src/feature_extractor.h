@@ -1,3 +1,21 @@
+/*!
+ * \brief Generic feature extractor for extracting features from objects.
+ * The feature extractor can be used for extracting features from any object.
+ * The feature extractor and feature function classes are template classes
+ * that have to be instantiated for extracting feature from a specific object
+ * type.
+ *
+ * A feature extractor consists of a hierarchy of feature functions. Each
+ * feature function extracts one or more feature type and value pairs from the
+ * object.
+ *
+ * The feature extractor has a modular design where new feature functions can be
+ * registered as components. The feature extractor is initialized from a descriptor
+ * represented by a protocol buffer. The feature extractor can also be initialized
+ * from a text-based source sepcification of the feature extractor. Feature specification
+ * parsers can be added as components. By default the feature extractor can be read
+ * from an ASCII protocol buffer or in a simple feature modeling language (fml).
+ */
 #ifndef FEATURE_EXTRACTOR_H_
 #define FEATURE_EXTRACTOR_H_
 
