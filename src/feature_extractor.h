@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "feature_types.h"
+
 typedef int64_t Predicate;
 typedef Predicate FeatureValue;
 
@@ -95,11 +97,76 @@ class GenericFeatureFunction {
     string prefix_;
 };
 
+/*!
+ * \brief Feature function that can extract features from an object. Templated on
+ * two arguments.
+ *
+ * OBJ: The "object" from which features are extracted; e.g., a sentence. This 
+ *      should be a plain type, rather than a reference or pointer.
+ *
+ * ARGS: A set of 0 or more types that are used to "index" into some part of the
+ *       object that should be extracted, e.g. an int token index for a sentence
+ *       object. This should not be a reference type.
+ */
 template<class OBJ, class ...ARGS>
 class FeatureFunction : public GenericFeatureFunction {
   public:
     using Self = FeatureFunction<OBJ, ARGS...>;
 
+    // Preprocesses the object. This will be called prior to calling Evaluate()
+    // or Compute() on that object.
+    virtual void Preprocess(WorkspaceSet *workspaces, OBJ *object) const {}
+
+    // Multi-valued feature
+    virtual void Evaluate(const WorkspaceSet &workspaces, const OBJ &object,
+        ARGS... args, FeatureVector *result) const {
+    }
+
+    // Returns a feature value computed from the object and focus, or kNone if no
+    // value is computed. Single-valued feature functions only need to override this
+    // method.
+    virtual FeatureValue Compute(const WorkspaceSet &workspaces,
+        const OBJ &object, ARGS... args, const FeatureVector *fv) const {
+    }
+};
+
+/*!
+ * \brief Base class for features with nested feature functions.
+ */
+template<class NES, class OBJ, class ...ARGS>
+class NestedFeatureFunction : public FeatureFunction<OBJ, ARGS...> {
+};
+
+template<class OBJ, class ...ARGS>
+class MetaFeatureFunction : public NestedFeatureFunction<
+    FeatureFunction<OBJ, ARGS...>, OBJ, ARGS...> {
+};
+
+/*!
+ * \brief Template for a special type of locator:
+ *
+ * This is useful to e.g. add a token focus to a parser state based on
+ * some desired property of that state.
+ */
+template<class DER, class OBJ, class IDX, class ...ARGS>
+class FeatureAddFocusLocator : public NestedFeatureFunction<
+    FeatureFunction<OBJ, IDX, ARGS...>, OBJ, ARGS...> {
+};
+
+/*!
+ * \brief CRTP feature locator class. 
+ * This is a meta feature that modifies ARGS
+ * and then calls the nested feature functions with the modified ARGS.
+ */
+template<class DER, class OBJ, class ...ARGS>
+class FeatureLocator : public MetaFeatureFunction<OBJ, ARGS...> {
+};
+
+/*!
+ * \brief Feature extractor for extracting features from objects of a certain class.
+ */
+template<class OBJ, class ...ARGS>
+class FeatureExtractor : public GenericFeatureExtractor {
 };
 
 #endif

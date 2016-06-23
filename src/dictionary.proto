@@ -1,0 +1,13 @@
+// Protocal buffers for serializing string <=> index dictionaries.
+
+syntax = "proto2";
+
+message StringToStringPair {
+  required string key = 1;
+
+  required string value = 2;
+}
+
+message StringToStringMap {
+  repeated StringToStringPair pair = 1;
+}

@@ -28,6 +28,8 @@
 
 #include <string>
 
+#include "feature_extractor.pb.h"
+
 class FMLParser {
   public:
     // Parses fml specification into feature extractor descriptor.
