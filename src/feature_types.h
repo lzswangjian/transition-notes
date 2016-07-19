@@ -8,8 +8,10 @@
 #include <string>
 #include <utility>
 
+#include "utils.h"
+
 // Use the same type for feature values as is used for predicated.
-typedef int64 Predicate;
+typedef int64_t Predicate;
 typedef Predicate FeatureValue;
 
 /*!
@@ -32,7 +34,7 @@ public:
   virtual string GetFeatureValueName(FeatureValue value) const = 0;
 
   // Returns the size of the feature values domain.
-  virtual int64 GetDomainSize() const = 0;
+  virtual int64_t GetDomainSize() const = 0;
 
   // Returns the feature type name.
   const string &name() const { return name_; }
@@ -62,7 +64,24 @@ private:
  */
 template<class Resource>
 class ResourceBasedFeatureType : public FeatureType {
+public:
+    ResourceBasedFeatureType(const string &name, const Resource *resource,
+                             const map<FeatureValue, string> &values)
+        : FeatureType(name), resource_(resource), values_(values) {
+
+    }
+
+    string GetFeatureValueName(FeatureValue value) const override {
+
+    }
+
+    int64_t GetDomainSize() const override {
+        return max_value_ + 1;
+    }
+
+
 protected:
+    // Shared resource. Not owned.
   const Resource *resource_ = nullptr;
 
   FeatureValue max_value_;
@@ -82,10 +101,10 @@ protected:
 class EnumFeatureType : public FeatureType {
 public:
   EnumFeatureType(const string &name,
-      const map<FeatureValue, string> &value_names)
+                  const map<FeatureValue, string> &value_names)
     : FeatureType(name), value_names_(value_names) {
     for (const auto &pair : value_names) {
-      CHECK_GE(pair.first, 0) << "Invalid feature value:" \
+      CHECK_GE(pair.first, 0) << "Invalid feature value:"
         << pair.first << ", " << pair.second;
       domain_size_ = std::max(domain_size_, pair.first + 1);
     }

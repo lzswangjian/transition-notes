@@ -1,6 +1,8 @@
 #ifndef DOCUMENT_FORMAT_H_
 #define DOCUMENT_FORMAT_H_
 
+#include "sentence.h"
+
 /*!
  * \brief A document format component converts a key/value pair from
  * a record to one or more documents.
@@ -22,6 +24,6 @@ class DocumentFormat : public RegisterableClass<DocumentFormat> {
     // Converts a document to a key/value pair.
     virtual void ConvertToString(const Sentence &document,
         string *key, string *value) = 0;
-    
-}
+};
+
 #endif

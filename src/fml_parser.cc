@@ -32,7 +32,7 @@ void FMLParser::NextItem() {
       // Skip comment.
       while (!eos() && *current_ != '\n') Next();
     } else if (isspace(*current_)) {
-      // Skip whilespace
+      // Skip whitespace
       while (!eos() && isspace(*current_)) Next();
     } else {
       break;
@@ -103,14 +103,14 @@ void FMLParser::Parse(const string &source,
       Error("Invalid syntax: feature expected");
     } else {
       // Parse feature.
-      FeatureExtractorDescriptor *descriptor = result->add_feature();
+      FeatureFunctionDescriptor *descriptor = result->add_feature();
       descriptor->set_type(name);
       ParseFeature(descriptor);
     }
   }
 }
 
-void FMLParser::ParseFeature(FeatureExtractorDescriptor *result) {
+void FMLParser::ParseFeature(FeatureFunctionDescriptor *result) {
   // Parse argument and paramters.
   if (item_type_ == '(') {
     NextItem();
@@ -146,7 +146,7 @@ void FMLParser::ParseFeature(FeatureExtractorDescriptor *result) {
     NextItem();
 
     // Parse sub-feature.
-    FeatureExtractorDescriptor *subfeature = result->add_feature();
+    FeatureFunctionDescriptor *subfeature = result->add_feature();
     subfeature->set_type(type);
     ParseFeature(subfeature);
   } else if (item_type_ == '{') {
@@ -158,7 +158,7 @@ void FMLParser::ParseFeature(FeatureExtractorDescriptor *result) {
       NextItem();
 
       // Parse sub-feature.
-      FeatureExtractorDescriptor *subfeature = result->add_feature();
+      FeatureFunctionDescriptor *subfeature = result->add_feature();
       subfeature->set_type(type);
       ParseFeature(subfeature);
     }
@@ -166,10 +166,10 @@ void FMLParser::ParseFeature(FeatureExtractorDescriptor *result) {
   }
 }
 
-void FMLParser::ParserParameter(FeatureExtractorDescriptor *result) {
+void FMLParser::ParserParameter(FeatureFunctionDescriptor *result) {
   if (item_type_ == NUMBER) {
     int argument = 
-      utils::ParseUsing<int>(item_text_, tensorflow::strings::safe_strto32);
+      utils::ParseUsing<int>(item_text_, utils::ParseInt32);
     NextItem();
     
     // Set default argument for feature.
@@ -191,4 +191,19 @@ void FMLParser::ParserParameter(FeatureExtractorDescriptor *result) {
   } else {
     Error("Syntax error in parameter list");
   }
+}
+
+void FMLParser::Error(const string &error_message) {
+    LOG(FATAL) << "Error in feature model, line " << item_line_number_
+    << ", position " << (item_start_ - line_start_ + 1)
+    <<": " << error_message
+    << "\n    " << string(line_start_, current_) << "<--HERE";
+}
+
+void ToFMLFunction(const FeatureFunctionDescriptor &function, string *output) {
+    // TODO
+}
+
+void ToFML(const FeatureFunctionDescriptor &function, string *output) {
+    // TODO
 }

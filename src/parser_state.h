@@ -1,6 +1,19 @@
 #ifndef PARSER_STATE_H_
 #define PARSER_STATE_H_
 
+#include <string>
+#include <vector>
+
+#include "parser_transitions.h"
+#include "sentence.h"
+
+class TermFrequencyMap;
+
+/*!
+ * \brief A ParserState object represents the state of the parser during the
+ * parsing of a sentence. The state consists of a pointer to the next input
+ * token and a stack of partially processed tokens.
+ */
 class ParserState {
   public:
     static const char kRootLabel[];
@@ -60,7 +73,7 @@ class ParserState {
     // Returns the parent of a given token 'n' levels up in the tree.
     int Parent(int index, int n) const;
 
-    int LeftmostChild(int index int n) const;
+    int LeftmostChild(int index, int n) const;
 
     int RightmostChild(int index, int n) const;
 
@@ -68,7 +81,7 @@ class ParserState {
 
     int RightSibling(int index, int n) const;
 
-    void AddArc(int index, int n) const;
+    void AddArc(int index, int head, int label);
 
     bool IsTokenCorrect(int index) const;
 
@@ -94,18 +107,18 @@ class ParserState {
 
     // Returns the string representation of a dependency label, or an empty 
     // string if the label is invalid.
-    string LabelAsString(int label) const;
+    std::string LabelAsString(int label) const;
 
     // Returns a string representation of the parser state.
-    string ToString() const;
+    std::string ToString() const;
 
     // Returns the underlying sentence instance.
     const Sentence &sentence() const { return *sentence_; }
     Sentence *mutable_sentence() const { return sentence_; }
 
     // Returns the transiton system-specific state.
-    const ParserTransitionState transition_state() const {
-      return *transition_state_;
+    const ParserTransitionState *transition_state() const {
+      return transition_state_;
     }
     ParserTransitionState *mutable_transition_state() const {
       return transition_state_;
@@ -120,7 +133,7 @@ class ParserState {
     ParserState() {}
 
     // Default value for the root token.
-    const Token kRootToken;
+    Token kRootToken;
 
     // Sentence to parse.
     Sentence *sentence_ = nullptr;
@@ -133,6 +146,10 @@ class ParserState {
     // Transition system-specific state.
     ParserTransitionState *transition_state_ = nullptr;
 
+    // Label map used for conversions between integer and string representations
+    // of the dependency labels.
+    const TermFrequencyMap *label_map_ = nullptr;
+
     // Root label.
     int root_label_;
 
@@ -140,13 +157,13 @@ class ParserState {
     int next_;
 
     // Parse stack of partially processed tokens.
-    vector<int> statck_;
+    std::vector<int> stack_;
 
     // List of head positions for the (partial) dependency tree.
-    vector<int> head_;
+    std::vector<int> head_;
 
     // List of dependency relation labels describing the (partial) dependency.
-    vector<int> label_;
+    std::vector<int> label_;
 
     // Score for the parser state.
     double score_ = 0.0;

@@ -6,8 +6,12 @@
 
 #include "feature_extractor.h"
 #include "feature_types.h"
-#include "parse_features.h"
+#include "parser_features.h"
 #include "sentence_features.h"
+#include "parser_state.h"
+#include "sparse_features.h"
+#include "task_context.h"
+#include "work_space.h"
 
 /*!
  * \brief An EmbeddingFeatureExtractor manages the extraction of
@@ -20,7 +24,7 @@
  * GenericEmbeddingFeatureExtractor (that can be initialized without knowing
  * the signature of the ExtractFeatures method) and a typed version.
  *
- * The predicate maps must be initialized before use: they can be loaded  using
+ * The predicate maps must be initialized before use: they can be loaded using
  * Read() or updated via UpdateMapsForExample.
  */
 class GenericEmbeddingFeatureExtractor {
@@ -59,7 +63,7 @@ class GenericEmbeddingFeatureExtractor {
     const vector<string> &embedding_fml() const { return embedding_fml_; }
 
     string GetParamName(const string &param_name) const {
-      return tensorflow::strings::StrCat(ArgPrefix(), "_", param_name);
+      return ArgPrefix() + "_" + param_name;
     }
 
   protected:
@@ -115,24 +119,24 @@ class EmbeddingFeatureExtractor : public GenericEmbeddingFeatureExtractor {
     // Initializes resources needed by the feature extractors.
     void Init(TaskContext *context) override {
       GenericEmbeddingFeatureExtractor::Init(context);
-      for (auto &feature_extracor : feature_extractors_) {
-        feature_extracor.Init(context);
+      for (auto &feature_extractor : feature_extractors_) {
+          feature_extractor.Init(context);
       }
     }
 
     // Requests workspaces from the registry. Must be called after Init(),
     // and before Preprocess().
     void RequestWorkspaces(WorkspaceRegistry *registry) override {
-      for (auto &feature_extracor : feature_extractors_) {
-        feature_extracor.RequestWorkspaces(registry);
+      for (auto &feature_extractor : feature_extractors_) {
+          feature_extractor.RequestWorkspaces(registry);
       }
     }
 
     // Must be called on the object one state for each sentence, before any
     // feature extraction (e.g., UpdateMapsForExample, ExtractSparseFeatures).
     void Preprocess(WorkspaceSet *workspaces, OBJ *obj) const {
-      for (auto &feature_extracor : feature_extractors_) {
-        feature_extractor.Preprocess(workspaces, obj);
+      for (auto &feature_extractor : feature_extractors_) {
+          feature_extractor.Preprocess(workspaces, obj);
       }
     }
 
@@ -172,7 +176,7 @@ class EmbeddingFeatureExtractor : public GenericEmbeddingFeatureExtractor {
       const override {
         DCHECK_LT(idx, feature_extractors_.size());
         DCHECK_GE(idx, 0);
-        return feature_extractors_[i];
+        return feature_extractors_[idx];
     }
 
   private:

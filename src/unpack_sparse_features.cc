@@ -1,2 +1,2 @@
-class UnpackSparseFeatures : public OpKernel {
+class UnpackSparseFeatures {
 };

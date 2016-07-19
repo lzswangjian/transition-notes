@@ -1,14 +1,42 @@
-# c++
-*.so
-*.a
+# Compiled Object files
+*.slo
 *.lo
 *.o
+*.obj
 
-# python
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*~
+config.mk
 *.pyc
 
-# java
-*.class
-*.iml
+# Vim
+*.swp
+*.swo
+*.swn
+*.csv
 
-
+# Emacs
+.clang_complete
+deps
+recommonmark

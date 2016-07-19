@@ -2,7 +2,7 @@
 
 def BatchedSparseToDense(sparse_indices, output_size):
   """Batch compatible sparse to dense conversion.
-  
+
   This is useful for one-hot coded target labels.
 
   Args:
@@ -17,7 +17,9 @@ def BatchedSparseToDense(sparse_indices, output_size):
 
 
 def EmbeddingLookupFeatures(params, sparse_features, allow_weights):
-  """
+  """Computes embeddings for each entry of sparse features sparse_features.
+  Args:
+    parms: list of 2D tensors containing vector embeddings.
   """
   if not isinstance(params, list):
     params = [params]
@@ -40,7 +42,7 @@ class GreedyParser(object):
 
   Builds a graph with an optional reader op connected at one end
   and operations needed to train the network on the other. Supports
-  multiple network instantiations sharing the same parameters and 
+  multiple network instantiations sharing the same parameters and
   network topology.
 
   The following named nodes are added to the training and eval networks:
@@ -56,8 +58,8 @@ class GreedyParser(object):
       num_actions,
       num_features,
       num_feature_ids,
-      embedding_size,
-      hidden_layer_size,
+      embedding_sizes,
+      hidden_layer_sizes,
       seed=None,
       gate_gradients=False,
       use_locking=False,
@@ -73,6 +75,16 @@ class GreedyParser(object):
       only_train='',
       arg_prefix=None,
       **unused_kwargs):
+    """Initalize the graph builder with parameters defining the network.
+
+    Args:
+      num_actions: int size of the set of parser actions.
+      num_features: int list of dimensions of the feature vectors.
+      num_feature_ids: int list of same length as num_features corresponding to
+        the sizes of the input feature spaces.
+      embedding_sizes: int list of same length as num_features of the desired
+        embedding layer sizes.
+    """
 
     self._num_actions = num_actions
     self._num_features = num_features
@@ -85,8 +97,10 @@ class GreedyParser(object):
     # the graph.
     self.variables = {}
 
+    # Operations to initialize any nodes that require initialization.
     self.inits = {}
 
+    # Training and eval releated nodes.
     self.training = {}
     self.evaluation = {}
     self.saver = None
@@ -108,8 +122,8 @@ class GreedyParser(object):
 
   def _AddParam(self, shape, dtype, name, initializer=None, return_average=False):
     """Add a model parameter w.r.t we expect to compute gradients.
-    _AddParam creates both regular parameters (usually for tranining) and averaged 
-    nodes (usually for inference). It returns one or the other based on the 
+    _AddParam creates both regular parameters (usually for tranining) and averaged
+    nodes (usually for inference). It returns one or the other based on the
     'return_average' arg.
     """
 
@@ -165,7 +179,7 @@ class GreedyParser(object):
     Returns:
       logits: output of the final layer before computing softmax.
     """
-    
+
     assert len(feature_endpoints) == self._feature_size
 
     # Creating embedding layer.
@@ -212,7 +226,7 @@ class GreedyParser(object):
         'softmax_bias',
         tf.zeros_initializer,
         return_average=return_average)
-    
+
     logits = tf.nn.xw_plus_b(layer, softmax_weight, softmax_bias, name='logits')
     return {'logits' : logits}
 
@@ -225,14 +239,40 @@ class GreedyParser(object):
           arg_prefix=self._arg_prefix))
 
     return {'gold_actions' : tf.identity(gold_actions, name='gold_actions'),
-        'epochs' : tf.identity(epochs, name='epochs'),
-        'feature_endpoints': features}
+            'epochs' : tf.identity(epochs, name='epochs'),
+            'feature_endpoints': features}
+
+  def _AddDecodedReader(self, task_context, batch_size, transition_scores, corpus_name):
+    pass
 
 
   def _AddCostFunction(self, batch_size, gold_actions, logits):
     """Cross entropy plus L2 loss on weights and bias of the hidden layers.
     """
-    pass
+    dense_gloden = BatchedSparseToDense(gold_actions, self._num_actions)
+    cross_entropy = tf.div(
+      tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits(
+        logits, dense_gloden)), batch_size)
+    regularized_params = [tf.nn.l2_loss(p)
+                          for k, p in self.params.items()
+                          if k.startswith('weights') or k.startswith('bias')]
+    l2_loss = 1e-4 * tf.add_n(regularized_params) if regularized_params else 0
+    return {'cost': tf.add(cross_entropy, l2_loss, name='cost')}
+
+  def AddPretrainedEmbeddings(self, index, embedding_path, task_context):
+    """Embeddings at the given index will be set to pretrained values.
+    """
+    def _Initializer(shape, dtype=tf.float32):
+      unused_dtype = dtype
+      t = gen_parser_ops.word_embedding_initializer(
+        vectors=embedding_path,
+        task_context=task_context,
+        embedding_init=self._embedding_init)
+
+      t.set_shape(shape)
+      return t
+
+    self._pretrained_embeddings[index] = _Initializer
 
   def AddTraining(self, task_context, batch_size, learning_rate=0.1,
       decay_steps=4000, momentum=0.9, corpus_name='documents'):

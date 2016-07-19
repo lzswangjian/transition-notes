@@ -1,6 +1,11 @@
 #ifndef PARSER_TRANSITIONS_H_
 #define PARSER_TRANSITIONS_H_
 
+#include "utils.h"
+
+class Sentence;
+class ParserState;
+
 typedef int ParserAction;
 
 enum class LabelType {
@@ -10,28 +15,40 @@ enum class LabelType {
 };
 
 /*!
- * \brief Transition system-specfic state.
+ * \brief Transition system-specific state.
  * Transition systems can subclass this to preprocess the parser
  * state and/or to keep additional information during parsing.
  */
 class ParserTransitionState {
-  public:
-    virtual ~ParserTransitionState() {}
+public:
+  virtual ~ParserTransitionState() {}
 
-    // Clones the transition state.
-    virtual ParserTransitionState *Clone() const = 0;
+  // Clones the transition state.
+  virtual ParserTransitionState *Clone() const = 0;
 
-    // Initializes a parser state for the transition system.
-    virtual void Init(ParserState *state) = 0;
+  // Initializes a parser state for the transition system.
+  virtual void Init(ParserState *state) = 0;
 
-    virtual void AddParseToDocument(const ParserState &state,
-        bool rewrite_root_labels,
-        Sentence *sentence) const {}
+  virtual void AddParseToDocument(const ParserState &state,
+                                  bool rewrite_root_labels,
+                                  Sentence *sentence) const {}
 
-    virtual string ToString(const ParserState &state) const = 0;
+  // Whether a parsed token should be considered correct for evaluation.
+  virtual bool IsTokenCorrect(const ParserState &state, int index) const = 0;
+
+  // Returns a human readable string representation of this state.
+  virtual string ToString(const ParserState &state) const = 0;
 };
 
 
+/*!
+ * \brief ParserTransitionsystem
+ * A transition system is used for handling the parser state transitions. During
+ * traning the transition system is used for extracting a canonical sequence of 
+ * transitions for an annotated sentence. During parsing the transition system is
+ * used for applying the predicated transitions to the parser state and therefore build
+ * the parse tree for the sentence
+ */
 class ParserTransitionSystem {
   public:
     ParserTransitionSystem() {}
@@ -41,8 +58,10 @@ class ParserTransitionSystem {
     
     virtual void Init() {}
 
+  // Reads the transition system from disk.
     virtual void Read() {}
 
+  // Writes the transition system to disk.
     virtual void Write() {}
 
     // Return the number of actions types.
@@ -65,17 +84,20 @@ class ParserTransitionSystem {
     // Returns all next gold actions for the parser during training using the
     // dependency relations found in the underlying annotated sentence.
     virtual void GetAllNextGoldActions(const ParserState &state,
-        vector<ParserState> *actions) const {
+        vector<ParserAction> *actions) const {
       ParserAction action = GetNextGoldAction(state);
       *actions = {action};
     }
+
+  // Internally counts all next gold actions from the current parser state.
+  virtual void CountAllNextGoldActions(const ParserState &state) {}
 
     // Returns the number of atomic actions within the specified ParserAction.
     virtual int ActionLength(ParserAction action) const { return 1; }
 
     // Returns true if the action is allowed in the given parser state.
     virtual bool IsAllowedAction(ParserAction action,
-        const ParserState &state) const = 0;
+                                 const ParserState &state) const = 0;
 
     // Performs the specified action on a given parser state. The action is
     // saved in the state's history.
@@ -84,17 +106,29 @@ class ParserTransitionSystem {
     // Performs the specified action on a given parser state. The action is not
     // saved in the state's history.
     virtual void PerformActionWithoutHistory(ParserAction action,
-        ParserState *state) const;
+                                             ParserState *state) const = 0;
 
     // Returns true if a given state is deterministic.
-    virtual bool IsDeterministicState(const ParserState &state) const;
+    virtual bool IsDeterministicState(const ParserState &state) const = 0;
 
     // Returns true if no more actions can be applied to a given parser state.
     virtual bool IsFinalState(const ParserState &state) const = 0;
 
     // Returns a string representation of a parser action.
     virtual string ActionAsString(ParserAction action,
-        const ParserState &state) const = 0;
+                                  const ParserState &state) const = 0;
+
+  // Returns a new transition state that can be used to put additional information in
+  // a parser state.
+  virtual ParserTransitionState *NewTransitionState(bool training_mode) const {
+    return nullptr;
+  }
+
+  // Whether the system allows non-projective trees.
+  virtual bool AllowsNonProjective() const { return false; }
+
+  // Whether or not the system support computing meta-data about actions.
+  virtual bool SupportActionMetaData() const { return false; }
 
     // Get the index of the child that would be created by this action.
     // -1 for no child created.

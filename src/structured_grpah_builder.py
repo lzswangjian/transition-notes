@@ -6,6 +6,8 @@ def AddCrossEntropy(batch_size, n):
 
 
 class StructuredGraphBuilder(graph_builder.GreedyParser):
+  """Extends the standard GreedyParser with a CRF objective using a beam.
+  """
   
   def __init__(self):
     pass

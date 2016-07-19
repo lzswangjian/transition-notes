@@ -10,6 +10,11 @@
 #include "affix.h"
 #include "feature_extractor.h"
 #include "feature_types.h"
+#include "sentence.h"
+#include "task_context.h"
+#include "work_space.h"
+#include "registry.h"
+#include "term_frequency_map.h"
 
 
 // Feature function for any component that processes Sentences, whose
@@ -22,10 +27,84 @@ template <class DER>
 using Locator = FeatureLocator<DER, Sentence, int>;
 
 class TokenLookupFeature : public SentenceFeature {
+  public:
+    void Init(TaskContext *context) override {
+      set_feature_type(new ResourceBasedFeatureType<TokenLookupFeature>(
+            name(), this, {{NumValues(), "<OUTSIDE>"}}));
+    }
+
+    virtual FeatureValue ComputeValue(const Token &token) const = 0;
+
+    virtual int64_t NumValues() const = 0;
+
+    virtual string GetFeatureValueName(FeatureValue value) const = 0;
+
+    virtual string WorkspaceName() const = 0;
+
+    void Preprocess(WorkspaceSet *workspaces,
+        Sentence *sentence) const override {
+      if (workspaces->Has<VectorIntWorkspace>(workspace_)) return;
+      VectorIntWorkspace *workspace = new VectorIntWorkspace(
+          sentence->token_size());
+      for (int i = 0; i < sentence->token_size(); ++i) {
+        const int value = ComputeValue(sentence->token(i));
+        workspace->set_element(i, value);
+      }
+      workspaces->Set<VectorIntWorkspace>(workspace_, workspace);
+    }
+
+    void RequestWorkspaces(WorkspaceRegistry *registry) override {
+      workspace_ = registry->Request<VectorIntWorkspace>(WorkspaceName());
+    }
+
+    FeatureValue Compute(const WorkspaceSet &workspaces,
+        const Sentence &sentence, int focus, const FeatureVector *result) const override {
+      if (focus < 0 || focus >= sentence.token_size()) return NumValues();
+      return workspaces.Get<VectorIntWorkspace>(workspace_).element(focus);
+    }
+
+  private:
+    int workspace_;
 };
 
 // Lookup feature that uses a TermFrequencyMap to store a string->int mapping.
 class TermFrequencyMapFeature : public TokenLookupFeature {
+public:
+    explicit TermFrequencyMapFeature(const string &input_name)
+        : input_name_(input_name), min_freq_(0), max_num_terms_(0) {}
+    ~TermFrequencyMapFeature() override;
+
+    // Requests the input map as a resource.
+    void Setup(TaskContext *context) override;
+
+    void Init(TaskContext *context) override;
+
+    virtual int64_t NumValues() const override { return term_map_->Size() + 1; }
+
+    // Special value for strings not in the map.
+    FeatureValue UnknownValue() const { return term_map_->Size(); }
+
+    string GetFeatureValueName(FeatureValue value) const override;
+
+    string WorkspaceName() const override;
+
+protected:
+    const TermFrequencyMap &term_map() const { return *term_map_; }
+
+private:
+    // Not owned.
+    const TermFrequencyMap *term_map_ = nullptr;
+
+    string input_name_;
+
+    // Filename of the underlying resource.
+    string file_name_;
+
+    // Minimum frequency for term map.
+    int min_freq_;
+
+    // Maximum number of terms for term map.
+    int max_num_terms_;
 };
 
 class Word : public TermFrequencyMapFeature {
@@ -34,7 +113,7 @@ class Word : public TermFrequencyMapFeature {
 
     FeatureValue ComputeValue(const Token &token) const override {
       string form = token.word();
-      return term_map().LookupIndex(form, UnKnownValue());
+      return term_map().LookupIndex(form, UnknownValue());
     }
 };
 
@@ -44,7 +123,7 @@ class LowercaseWord : public TermFrequencyMapFeature {
 
     FeatureValue ComputeValue(const Token &token) const override {
       const string lcword = utils::Lowercase(token.word());
-      return term_map().LookupIndex(lcword, UnKnownValue());
+      return term_map().LookupIndex(lcword, UnknownValue());
     }
 };
 
@@ -53,7 +132,7 @@ class Tag : public TermFrequencyMapFeature {
     Tag() : TermFrequencyMapFeature("tag-map") {}
 
     FeatureValue ComputeValue(const Token &token) const override {
-      return term_map().LookupIndex(token.tag(), UnKnownValue());
+      return term_map().LookupIndex(token.tag(), UnknownValue());
     }
 };
 
@@ -62,7 +141,7 @@ class Label : public TermFrequencyMapFeature {
     Label() : TermFrequencyMapFeature("label-map") {}
 
     FeatureValue ComputeValue(const Token &token) const override {
-      return term_map().LookupIndex(token.label(), UnKnownValue());
+      return term_map().LookupIndex(token.label(), UnknownValue());
     }
 };
 
@@ -76,7 +155,7 @@ class LexicalCategoryFeature : public TokenLookupFeature {
 
     // Returns the identifier for the workspace for this preprocessor.
     string WorkspaceName() const override {
-      return tensorflow::strings::StrCat(name_, ":", cardinality_);
+      return name_ + ":" + utils::Printf(cardinality_);
     }
 
   private:

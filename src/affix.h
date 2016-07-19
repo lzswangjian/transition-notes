@@ -1,6 +1,8 @@
 #ifndef AFFIX_H_
 #define AFFIX_H_
 
+#include "utils.h"
+
 /*!
  * \brief An affix represents a prefix or suffix of a word of a certain length.
  * Each affix has a unique id and a textual form. An affix also has a pointer to

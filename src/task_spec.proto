@@ -6,7 +6,7 @@ package syntaxnet;
 message TaskInput {
   required string name = 1;
 
-  optional string creator = 2;o
+  optional string creator = 2;
 
   repeated string file_format = 3;
 

@@ -1,2 +1,0 @@
-Syntaxnet Learning Notes
-=========================

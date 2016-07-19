@@ -1,4 +1,10 @@
-#include <string>
+#include <deque>
+#include "utils.h"
+#include "sentence_batch.h"
+#include "parser_state.h"
+#include "task_context.h"
+#include "work_space.h"
+#include "embedding_feature_extractor.h"
 
 class ParsingReader : public OpKernel {
   public:
@@ -159,4 +165,61 @@ class GoldParseReader : public ParsingReader {
     // Adds the list of gold actions for each state as an additional output.
     void AddAdditionalOutputs(OpKernelContext *context) const override {
     }
+};
+
+class DecodedParseReader : public ParsingReader {
+public:
+  explicit DecodedParseReader(OpKernelConstruction *context)
+    : ParsingReader(context) {
+
+  }
+
+private:
+  void AdvanceSentence(int index) override {
+  }
+
+  void ComputeTokenAccuracy(const ParserState &state) {
+  }
+
+  void PerformActions(OpKernelContext *context) override {
+  }
+
+  void AddAdditionalOutputs(OpKernelContext *context) const override {
+  }
+
+  int num_tokens_ = 0;
+  int num_correct_ = 0;
+
+  string scoring_type_;
+
+  mutable std::deque<string> docids_;
+  mutable map<string, Sentence> sentence_map_;
+};
+
+class WordEmbeddingInitializer : public OpKernel {
+public:
+  explicit WordEmbeddingInitializer(OpKernelConstruction *context)
+    : OpKernel(context) {
+    string file_path, data;
+    OP_REQUIRES_OK(context, context->GetAttr("task_context", &file_path));
+    OP_REQUIRES_OK(context, ReadFileToString(tensorflow::Env::Default(),
+                                             file_path, &data));
+  }
+
+  void Compute(OpKernelContext *context) override {
+    // Loads words from vocabulary with mapping to ids.
+    string path = TaskContext::InputFile(*task_context_.GetInput("word_map"));
+    const TermFrequencyMap *word_map =
+      SharedStoreUtils::GetWithDefaultName<TermFrequencyMap>(path, 0, 0);
+    unordered_map<string, int64_t> vocab;
+    for (int i = 0; i < word_map->size(); ++i) {
+      vocab[word_map->GetTerm(i)] = i;
+    }
+
+    // Creates a reader pointing to a local copy of the vectors recordio.
+    string tmp_vectors_path;
+    OP_REQUIRES_OK(context, CopyToTmpPath(vectors_path_, &tmp_vectors_path));
+    ProtoRecordReader reader(tmp_vectors_path);
+    
+  }
 };

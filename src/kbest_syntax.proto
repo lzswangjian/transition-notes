@@ -1,0 +1,6 @@
+// K-best part-of-speech and dependency annotations for tokens.
+
+syntax = "proto2";
+
+message KBestSyntaxAnalyses {
+}

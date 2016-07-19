@@ -26,9 +26,8 @@
 #ifndef FML_PARSER_H_
 #define FML_PARSER_H_
 
-#include <string>
-
-#include "feature_extractor.pb.h"
+#include "utils.h"
+#include "feature.h"
 
 class FMLParser {
   public:
@@ -49,10 +48,10 @@ class FMLParser {
     void NextItem();
 
     // Parses a feature descriptor.
-    void ParseFeature(FeatureExtractorDescriptor *result);
+    void ParseFeature(FeatureFunctionDescriptor *result);
 
     // Parses a parameter specification.
-    void ParserParameter(FeatureExtractorDescriptor *result);
+    void ParserParameter(FeatureFunctionDescriptor *result);
 
     // Returns true if end of source input has been reached.
     bool eos() { return current_ == source_.end(); }

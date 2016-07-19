@@ -1,3 +1,6 @@
+#include "task_context.h"
+#include "sentence.h"
+
 /*!
  * \brief Helper class to manage generating batches of preprocessed ParserState objects
  * by reading in multiple sentences in parallel.
