@@ -5,10 +5,17 @@
 #include <string>
 
 
+/*!
+ * \brief
+ * Wraps ParserState so that the history of transitions (actions
+ * performed and the beam slot they were performed in) are recorded.
+ */
 class ParserStateWithHistory {
 public:
   explicit ParserStateWithHistory(const ParserState &s) : state(s.Clone()) {}
-
+  
+  // New state obtained by cloning the given state and applying the given action.
+  // The given beam slot and action are appended to the history.
   ParserStateWithHistory(const ParserStateWithHistory &next,
                          const ParserTransitionSystem &transitions, int32 slot,
                          int32 action, float score)
@@ -23,8 +30,8 @@ public:
   }
 
   std::unique_ptr<ParserState> state;
-  std::vector<int32> slot_history;
-  std::vector<int32> action_history;
+  std::vector<int32_t> slot_history;
+  std::vector<int32_t> action_history;
   std::vector<float> score_history;
 };
 
@@ -76,8 +83,11 @@ public:
   // The beam can be
   //   - ALIVE: parsing is still active, features are being output for at least
   //     some slots in the beam.
-  //   - DYING:
-  //   - DEAD:
+  //   - DYING: features should be output for this beam only one more time, then
+  //     the beam will be DEAD. This state is reached when the gold path falls out
+  //     of the beam and features have to be output one last time.
+  //   - DEAD: parsing is not active, features are not being output and the no actions
+  //     are taken on the states.
   enum State { ALIVE = 0, DYING = 1, DEAD = 2 };
 
   explicit BeamState(const BatchStateOptions &options) : options_(options) {}
@@ -139,6 +149,9 @@ public:
       {
         ParseState *current = item.second->state.get();
         VLOG(2) << "Slot: " << slot;
+        VLOG(2) << "Parser state: " << current->ToString();
+        VLOG(2) << "Parser state cumulative score:  " << item.first.first << " "
+                << (item.first.second < 0 ? "golden" : "");
       }
       if (!transition_system_->IsFinalState(*item.second->state)) {
         // Not a final state.
@@ -161,7 +174,12 @@ public:
     UpdateAllFinal();
   }
 
-  void PopulateFeatureOutputs(std::vector<std::vector< std::vector<SparseFeatures> > > *features) {
+  void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
+    for (const AgendaItem &item : slots_) {
+      vector<vector<SparseFeatures> > f =
+        features_->ExtractSparseFeatures(*workspaces, *item.second->state);
+      for (size_t i = 0; i < f.size(); ++i) (*features)[i].push_back(f[i]);
+    }
   }
 
   int BeamSize() const { return slots_.size(); }
@@ -198,6 +216,13 @@ private:
   // Creates a new ParserState if there's another sentence to be read.
   void AdvanceSentence() {
     gold_.reset();
+    if (sentence_batch_->AdvanceSentence(beam_id_)) {
+      gold_.reset(new ParserState(sentence_batch_->sentence(beam_id_),
+                                  transition_system_->NewTransitionState(true),
+                                  label_map_));
+      workspace_->Reset(*workspace_registry_);
+      features_->Preprocess(workspace_, gold_.get());
+    }
   }
 
   void AdvanceGold() {
@@ -279,39 +304,109 @@ public:
   explicit BatchState(const BatchStateOptions &options)
     : options_(options), features_(options.arg_prefix) {}
 
-  ~BatchState() { }
+  ~BatchState() { SharedStore::Release(label_map_); }
 
   void Init(TaskContext *task_context) {
     // Create sentence bath
+    sentence_batch_.reset(new SentenceBatch(BatchSize(),
+                                            options.corpus_name));
+    sentence_batch_.Init(task_context);
+
+    // Create transition system.
+    transition_system_.reset(ParserTransitionSystem::Create(task_context->Get(
+      options_.arg_prefix+"_transition_system", "arc-standard")));
+    transition_system_.Setup(task_context);
+    transition_system_.Init(task_context);
+
+    // Create label map.
+    string label_map_path =
+      TaskContext::InputFile(*task_context->GetInput("label-map"));
+    label_map_ = SharedStoreUtils::GetWithDefaultName<TermFrequencyMap>(label_map_path, 0, 0);
+
+    // Setup features.
+    features_.Setup(task_context);
+    features_.Init(task_context);
+    features_.RequestWorkspaces(&workspace_registry_);
+
+    // Create workspaces.
+    workspaces_.resize(BatchSize());
+
+    // Create beams.
+    beams_.clear();
+    for (int beam_id = 0; beam_id < BatchSize(); ++beam_id) {
+      beams_.emplace_back(options_);
+      beams_[beam_id].beam_id_ = beam_id;
+      beams_[beam_id].sentence_batch_ = sentence_batch_.get();
+      beams_[beam_id].transition_system_ = transition_system_.get();
+      beams_[beam_id].label_map_ = label_map_;
+      beams_[beam_id].features_ = &features_;
+      beams_[beam_id].workspace_ = &workspaces_[beam_id];
+      beams_[beam_id].workspace_registry = &workspace_registry_;
+    }
   }
 
   void ResetBeams() {
+    for (BeamState &beam : beams_) {
+      beam.Reset();
+    }
+
+    // Rewind if no states remain in the batch (we need to rewind the corpus).
+    if (sentence_batch_->size() == 0) {
+      ++epoch_;
+      VLOG(2) << "Starting epoch " << epoch_;
+      sentence_batch_->Rewind();
+    }
   }
 
+  // Resets the offset vectors required for a single run because we're starting
+  // a new matrix of scores.
   void ResetOffsets() {
+    beam_offsets_.clear();
+    step_offsets_ = {0};
+    UpdateOffsets();
   }
 
   void AdvanceBeam(const int beam_id,
                    const TTypes<float>::ConstMatrix &scores) {
+    const int offset = beam_offsets_.back()[beam_id];
   }
 
   void UpdateOffsets() {
+    beam_offsets_.emplace_back(BatchSize() + 1, 0);
+    vector<int> &offsets = beam_offsets_.back();
+    for (int beam_id = 0; beam_id < BatchSize(); ++beam_id) {
+      // If the beam is ALIVE or DYING (but not DEAD), we want to
+      // output the activations.
+      const BeamState &beam = beams_[beam_id];
+      const int beam_size = beam.IsDead() ? 0 : beam:BeamSize();
+      offsets[beam_id + 1] = offsets[beam_id] + beam_size;
+    }
+    const int output_size = offsets.back();
+    step_offsets_.push_back(step_offsets_.back() + output_size);
   }
 
   tensorflow::Status PopulateFeatureOutputs(OpKernelContext *context) {
   }
-
+  
+  // Returns the offset (i.e. row number) of a particular beam at a
+  // particular step in the final concatenated score matrix.
   int GetOffset(const int step, const int beam_id) const {
+    return step_offsets_[step] + beam_offsets_[step][beam_id];
   }
 
   int FeatureSize() const {
+    return features_.embedding_dims().size();
   }
 
   int NumActions() const {
+    return transition_system_->NumActions(label_map_->Size());
   }
 
   int BatchSize() const {
+    return options_.batch_size;
   }
+
+  const BeamState &Beam(const int i) const { return beams_[i]; }
 
   int Epoch() const { return epoch_; }
 
@@ -358,13 +453,35 @@ public:
     string file_path;
     int feature_size;
     BatchStateOptions options;
+    TaskContext task_context;
+    
+    // Create batch state.
+    batch_state_.reset(new BatchState(options));
+    batch_state_.Init(&task_context);
+
+    // Check number of feature groups matches the task context.
+    const int required_size = batch_state_->FeatureSize();
   }
 
   void Compute(OpKernelContext *context) override {
+    mu_.lock();
+    // Write features.
+    batch_state_->ResetBeams();
+    batch_state_->ResetOffsets();
+    batch_state_->PopulateFeatureOutputs();
+
+    // Forward the beam state vector.
+    Tensor *output;
+    const int feature_size = batch_state_->FeatureSize();
+    output->scalar<int64_t>()() = reinterpret_cast<int64_t>(batch_state_.get());
+
+    // Ouput number of epochs.
+    output->scalar<int32_t>()() = batch_state_->Epoch();
+    mu_.unlock();
   }
 
 private:
-  mutext mu_;
+  mutex mu_;
 
   std::unique_ptr<BatchState> batch_state_;
 };
@@ -437,21 +554,30 @@ public:
     //
     // Each step of each batch: path gets its index computed and a
     // unique path id assigned.
-    std::vector<int32> indices;
-    std::vector<int32> path_ids;
+    std::vector<int32_t> indices;
+    std::vector<int32_t> path_ids;
 
     // Each unique path gets a batch id and a slot (in the beam)
     // id. These are in effect the row and column of the final
     // 'logits' matrix going to CrossEntropy.
-    std::vector<int32> beam_ids;
-    std::vector<int32> slot_ids;
+    std::vector<int32_t> beam_ids;
+    std::vector<int32_t> slot_ids;
 
     // To compute the cross entropy we also need the slot id of the
     // gold path , one per batch.
-    std::vector<int32> gold_slot(batch_size, -1);
+    std::vector<int32_t> gold_slot(batch_size, -1);
 
+    // For good measure we also output the path scores as computed by
+    // the beam decoder, so it can be compared in tests with the path
+    // scores computed via the indices in TF. This has the same length
+    // as beam_ids and slot_ids.
     std::vector<float> path_scores;
 
+    // The scores tensor has, conceptually, four dimensions: 1. number of steps,
+    // 2. batch size, 3. number of paths on the beam at that step, and 4. the number
+    // of actions scored. However this is not a true tensor since the size of the
+    // beam at each step may not be equal among all steps and among all batches.
+    // Only the batch size and number of actions are fixed.
     int path_id = 0;
     for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
       // This occurs at the end of the corpus, when there aren't enough
@@ -468,6 +594,17 @@ public:
           CHECK_EQ(gold_slot[beam_id], -1);
           gold_slot[beam_id] = slot;
         }
+
+        for (size_t step = 0; step < item.second->slot_history.size(); ++step) {
+          const int step_beam_offset = batch_state->GetOffset(step, beam_id);
+          const int slot_index = item.second->slot_history[step];
+          const int action_index = item.second->action_history[step];
+          indices.push_back(num_actions * (step_beam_offset + slot_index) +
+                            action_index);
+          path_ids.push_back(path_id);
+        }
+        ++slot;
+        ++path_id;
       }
     }
   }
@@ -475,4 +612,34 @@ public:
 
 // Computes eval metrics for the best path in the input beams.
 class BeamEvalOutput : public OpKernel {
+public:
+  explicit BeamEvalOutput(OpKernelConstruction *context) : OpKernel(context) {
+  }
+
+  void Compute(OpKernelContext *context) override {
+    int num_tokens = 0;
+    int num_correct = 0;
+    int all_final = 0;
+    BatchState *batch_state =
+      reinterpret_cast<BatchState *>(context->input(0).scalar<int64_t>()());
+    const int batch_size = batch_state->BatchSize();
+    vector<Sentence> documents;
+    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+      if (batch_state->Beam(beam_id).gold_ != nullptr &&
+          batch_state->Beam(beam_id).AllFinal()) {
+        ++all_final;
+        const auto &item = *batch_state->Beam(beam_id).slots_.rbegin();
+        ComputeTokenAccuracy();
+        documents.push_back(item.second->state->sentence());
+        item.second->state->AddParseToDocument(&documents.back());
+      }
+    }
+  }
+
+private:
+  void ComputeTokenAccuracy(const ParserState &state,
+                            const string &scoring_type,
+                            int *num_tokens, int *num_correct) {
+    
+  }
 };

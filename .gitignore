@@ -40,3 +40,10 @@ config.mk
 .clang_complete
 deps
 recommonmark
+
+# Idea
+.idea
+
+# CMake
+CMakeCache.txt
+CMakeFiles

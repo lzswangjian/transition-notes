@@ -1,5 +1,6 @@
-#include "task_context.h"
 #include "sentence.h"
+#include "io/text_reader.h"
+#include "utils/task_context.h"
 
 /*!
  * \brief Helper class to manage generating batches of preprocessed ParserState objects
@@ -25,7 +26,7 @@ class SentenceBatch {
 
     int size() const { return size_; }
 
-    Sentence *sentence(int index) { return sentences_[index].get(); }
+    Sentence *sentence(int index) { return sentences_[index]; }
 
   private:
     // Running tally of non-nullptr states in the batch.
@@ -41,5 +42,5 @@ class SentenceBatch {
     std::unique_ptr<TextReader> reader_;
 
     // Batch: Sentence objects.
-    std::vector<std::unique_ptr<Sentence>> sentences_;
+    std::vector<Sentence *> sentences_;
 };

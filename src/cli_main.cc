@@ -1,98 +1,61 @@
 #include <iostream>
-
-//#include "text_formats.cc"
-#include "lexicon_builder.cc"
-#include "tagger_transitions.h"
-#include "fml_parser.h"
-#include "task_context.h"
-#include "embedding_feature_extractor.h"
+#include "reader_ops.cc"
 
 using namespace std;
 
-int ReadCoNLL(int argc, char *argv[]){
-  CoNLLSyntaxFormat readParser;
-  ifstream m_file(argv[1]);
-  if (!m_file.is_open()) {
-    LOG(INFO) << "Open file [" << argv[1] << "] failed.";
-    return -1;
-  }
+/*int TestTaggerSystem(int argc, char *argv[]) {
+    Options options;
+    //Initializes label map and tag map.
+    TermFrequencyMap label_map;
+    label_map.Load(options.label_map_file_, 0, -1);
+    TermFrequencyMap tag_map;
+    tag_map.Load(options.tag_map_file_, 0, -1);
 
-  // Read
-  string record;
-  string doc_id = "conll";
-  vector<Sentence *> sentences;
-  while (readParser.ReadRecord(m_file, &record)) {
-    readParser.ConvertFromString(doc_id, record, &sentences);
-  }
+    // Initializes TaggerTransitionSystem.
+    //TaggerTransitionSystem *transition_system_ = new TaggerTransitionSystem();
+    //transition_system_->tag_map_ = &tag_map;
 
-  LOG(INFO) << "sentence size: " << sentences.size() << endl;
-  m_file.close();
+    ArcStandardTransitionSystem *transition_system_ = new ArcStandardTransitionSystem();
 
-  // Write
-  for (size_t i = 0; i < sentences.size(); ++i) {
-    string key, value;
-    readParser.ConvertToString(*sentences[i], &key, &value);
-    cout << value;
-  }
+    // Read input file.
+    CoNLLSyntaxFormat readParser;
+    ifstream m_file(options.input_file_);
+    if (!m_file.is_open()) {
+        LOG(INFO) << "Open file [" << options.input_file_ << "] failed.";
+        return -1;
+    }
 
-  // tagger transition
-  
-  return 0;
-}
+    string record;
+    string doc_id = "conll";
+    vector<Sentence *> sentences;
+    while (readParser.ReadRecord(&m_file, &record)) {
+        readParser.ConvertFromString(doc_id, record, &sentences);
+    }
 
+    LOG(INFO) << "sentence size: " << sentences.size() << endl;
+    m_file.close();
 
-int TestTaggerSystem(int argc, char *argv[]) {
-  //Initializes label map and tag map.
-  Options options;
-  TermFrequencyMap label_map;
-  label_map.Load(options.label_map_file_, 0, -1);
-  TermFrequencyMap tag_map;
-  tag_map.Load(options.tag_map_file_, 0, -1);
+    ParserState *state = new ParserState(sentences[0],
+                                         transition_system_->NewTransitionState(true), &label_map);
+    LOG(INFO) << "Initial parser state: " << state->ToString();
 
-  // Initializes TaggerTransitionSystem.
-  TaggerTransitionSystem *transition_system_ = new TaggerTransitionSystem();
-  transition_system_->tag_map_ = &tag_map;
+    while (!transition_system_->IsFinalState(*state)) {
+        ParserAction action = transition_system_->GetNextGoldAction(*state);
+        LOG(INFO) << "Performing action: "
+                  << transition_system_->ActionAsString(action, *state);
+        transition_system_->PerformActionWithoutHistory(action, state);
+        LOG(INFO) << "Parser State: " << state->ToString();
+    }
 
-  // Read input file.
-  CoNLLSyntaxFormat readParser;
-  ifstream m_file(options.input_file_);
-  if (!m_file.is_open()) {
-    LOG(INFO) << "Open file [" << options.input_file_ << "] failed.";
-    return -1;
-  }
-
-  string record;
-  string doc_id = "conll";
-  vector<Sentence *> sentences;
-  while (readParser.ReadRecord(m_file, &record)) {
-    readParser.ConvertFromString(doc_id, record, &sentences);
-  }
-
-  LOG(INFO) << "sentence size: " << sentences.size() << endl;
-  m_file.close();
-  
-  ParserState *state = new ParserState(sentences[0],
-      transition_system_->NewTransitionState(true), &label_map);
-  LOG(INFO) << "Initial parser state: " << state->ToString();
-
-  while (!transition_system_->IsFinalState(*state)) {
-    ParserAction action = transition_system_->GetNextGoldAction(*state);
-    LOG(INFO) << "Performing action: " 
-      << transition_system_->ActionAsString(action, *state);
-    transition_system_->PerformActionWithoutHistory(action, state);
-    LOG(INFO) << "Parser State: " << state->ToString();
-  }
-
-  delete state;
-  return 0;
+    delete state;
+    return 0;
 }
 
 int TestLexiconBuilder(int argc, char *argv[]) {
-  
-  LeiconBuilder lex_builder_;
-  Options options;
-  lex_builder_.Compute(options);
-  return 0;
+    LeiconBuilder lex_builder_;
+    Options options;
+    lex_builder_.Compute(options);
+    return 0;
 }
 
 int TestFMLParser(int argc, char *argv[]) {
@@ -110,7 +73,24 @@ int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
     TaskSpec *spec = context->mutable_spec();
 
     TaskInput *input = spec->add_input();
-    input->set_name("test/dev.conll.utf8");
+    input->set_name("training-corpus");
+    TaskInput::Part *input_part = input->add_part();
+    input_part->set_file_pattern("test/dev.conll.utf8");
+
+    TaskInput *label_map_input = spec->add_input();
+    label_map_input->set_name("label-map");
+    TaskInput::Part *label_part = label_map_input->add_part();
+    label_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/label-map");
+
+    TaskInput *tag_map_input = spec->add_input();
+    tag_map_input->set_name("tag-map");
+    TaskInput::Part *tag_part = tag_map_input->add_part();
+    tag_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/tag-map");
+
+    TaskInput *word_map_input = spec->add_input();
+    word_map_input->set_name("word-map");
+    TaskInput::Part *word_part = word_map_input->add_part();
+    word_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/word-map");
 
     TaskSpec::Parameter *feature_param = spec->add_parameter();
     feature_param->set_name("pos_features");
@@ -127,9 +107,252 @@ int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
     // Init ParserEmbeddingFeatureExtractor.
     ParserEmbeddingFeatureExtractor *features_ = new ParserEmbeddingFeatureExtractor("pos");
     features_->Setup(context);
+    features_->Init(context);
+
+    // Init Transition System.
+    // Initializes label map and tag map.
+    Options options;
+
+    // Initializes TaggerTransitionSystem.
+    TaggerTransitionSystem *transition_system_ = new TaggerTransitionSystem();
+    transition_system_->Setup(context);
+    transition_system_->Init(context);
+
+    string label_map_path = TaskContext::InputFile(*context->GetInput("label-map"));
+    const TermFrequencyMap *label_map = SharedStoreUtils::GetWithDefaultName<TermFrequencyMap>(
+            label_map_path, 0, 0);
+
+    // Read input file.
+    CoNLLSyntaxFormat readParser;
+    ifstream m_file(options.input_file_);
+    if (!m_file.is_open()) {
+        LOG(INFO) << "Open file [" << options.input_file_ << "] failed.";
+        return -1;
+    }
+
+    string record;
+    string doc_id = "conll";
+    vector<Sentence *> sentences;
+    while (readParser.ReadRecord(&m_file, &record)) {
+        readParser.ConvertFromString(doc_id, record, &sentences);
+    }
+
+    LOG(INFO) << "sentence size: " << sentences.size() << endl;
+    m_file.close();
+
+    for (size_t sid = 0; sid < sentences.size(); ++sid) {
+
+        ParserState *state = new ParserState(sentences[sid],
+                                             transition_system_->NewTransitionState(true), label_map);
+        LOG(INFO) << "Initial parser state: " << state->ToString();
+
+        WorkspaceSet workspace;
+        WorkspaceRegistry registry;
+        features_->RequestWorkspaces(&registry);
+        workspace.Reset(registry);
+        features_->Preprocess(&workspace, state);
+
+        *//*for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
+            cout << "Feature Size " << features_->FeatureSize(i) << endl;
+            cout << "Domain Size " << features_->EmbeddingSize(i) << endl;
+            cout << "EmbeddingDims " << features_->EmbeddingDims(i) << endl;
+        }*//*
+
+        while (!transition_system_->IsFinalState(*state)) {
+            ParserAction action = transition_system_->GetNextGoldAction(*state);
+            string action_string = transition_system_->ActionAsString(action, *state);
+            LOG(INFO) << "Performing action: " << action_string;
+            transition_system_->PerformActionWithoutHistory(action, state);
+            LOG(INFO) << "Parser State: " << state->ToString();
+
+            vector<vector<SparseFeatures>> features = features_->ExtractSparseFeatures(workspace, *state);
+            cout << action << "";
+            for (size_t i = 0; i < features.size(); ++i) {
+                for (size_t j = 0; j < features[i].size(); ++j) {
+                    SparseFeatures sf = features[i][j];
+                    for (uint64_t id : sf.id_) {
+                        cout << id << "";
+                    }
+                }
+            }
+            cout << endl;
+        }
+        delete state;
+    }
+}
+
+int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
+    // Init Parser Config.
+    TaskContext *context = new TaskContext();
+    TaskSpec *spec = context->mutable_spec();
+
+    TaskInput *input = spec->add_input();
+    input->set_name("training-corpus");
+    TaskInput::Part *input_part = input->add_part();
+    input_part->set_file_pattern("test/dev.conll.utf8");
+
+    TaskInput *label_map_input = spec->add_input();
+    label_map_input->set_name("label-map");
+    TaskInput::Part *label_part = label_map_input->add_part();
+    label_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/label-map");
+
+    TaskInput *tag_map_input = spec->add_input();
+    tag_map_input->set_name("tag-map");
+    TaskInput::Part *tag_part = tag_map_input->add_part();
+    tag_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/tag-map");
+
+    TaskInput *word_map_input = spec->add_input();
+    word_map_input->set_name("word-map");
+    TaskInput::Part *word_part = word_map_input->add_part();
+    word_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/word-map");
+
+    TaskSpec::Parameter *feature_param = spec->add_parameter();
+    feature_param->set_name("parser_features");
+    feature_param->set_value("input.word input(1).word input(2).word input(3).word stack.word stack(1).word stack(2).word stack(3).word stack.child(1).word stack.child(1).sibling(-1).word stack.child(-1).word stack.child(-1).sibling(1).word stack(1).child(1).word stack(1).child(1).sibling(-1).word stack(1).child(-1).word stack(1).child(-1).sibling(1).word stack.child(2).word stack.child(-2).word stack(1).child(2).word stack(1).child(-2).word;input.tag input(1).tag input(2).tag input(3).tag stack.tag stack(1).tag stack(2).tag stack(3).tag stack.child(1).tag stack.child(1).sibling(-1).tag stack.child(-1).tag stack.child(-1).sibling(1).tag stack(1).child(1).tag stack(1).child(1).sibling(-1).tag stack(1).child(-1).tag stack(1).child(-1).sibling(1).tag stack.child(2).tag stack.child(-2).tag stack(1).child(2).tag stack(1).child(-2).tag;stack.child(1).label stack.child(1).sibling(-1).label stack.child(-1).label stack.child(-1).sibling(1).label stack(1).child(1).label stack(1).child(1).sibling(-1).label stack(1).child(-1).label stack(1).child(-1).sibling(1).label stack.child(2).label stack.child(-2).label stack(1).child(2).label stack(1).child(-2).label");
+
+    TaskSpec::Parameter *embedding_name = spec->add_parameter();
+    embedding_name->set_name("parser_embedding_names");
+    embedding_name->set_value("words;tags;labels");
+
+    TaskSpec::Parameter *embedding_dims = spec->add_parameter();
+    embedding_dims->set_name("parser_embedding_dims");
+    embedding_dims->set_value("64;32;32");
+
+    // Init ParserEmbeddingFeatureExtractor.
+    ParserEmbeddingFeatureExtractor *features_ = new ParserEmbeddingFeatureExtractor("parser");
+    features_->Setup(context);
+    features_->Init(context);
+
+    // Init Transition System.
+    // Initializes label map and tag map.
+    Options options;
+
+    // Initializes TaggerTransitionSystem.
+    ArcStandardTransitionSystem *transition_system_ = new ArcStandardTransitionSystem();
+    transition_system_->Setup(context);
+    transition_system_->Init(context);
+
+    string label_map_path = TaskContext::InputFile(*context->GetInput("label-map"));
+    const TermFrequencyMap *label_map = SharedStoreUtils::GetWithDefaultName<TermFrequencyMap>(
+            label_map_path, 0, 0);
+
+    // Read input file.
+    CoNLLSyntaxFormat readParser;
+    ifstream m_file(options.input_file_);
+    if (!m_file.is_open()) {
+        LOG(INFO) << "Open file [" << options.input_file_ << "] failed.";
+        return -1;
+    }
+
+    string record;
+    string doc_id = "conll";
+    vector<Sentence *> sentences;
+    while (readParser.ReadRecord(&m_file, &record)) {
+        readParser.ConvertFromString(doc_id, record, &sentences);
+    }
+
+    LOG(INFO) << "sentence size: " << sentences.size() << endl;
+    m_file.close();
+
+    for (size_t sid = 0; sid < sentences.size(); ++sid) {
+
+        ParserState *state = new ParserState(sentences[sid],
+                                             transition_system_->NewTransitionState(true), label_map);
+        LOG(INFO) << "Initial parser state: " << state->ToString();
+
+        WorkspaceSet workspace;
+        WorkspaceRegistry registry;
+        features_->RequestWorkspaces(&registry);
+        workspace.Reset(registry);
+        features_->Preprocess(&workspace, state);
+
+        *//*for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
+            cout << "Feature Size " << features_->FeatureSize(i) << endl;
+            cout << "Domain Size " << features_->EmbeddingSize(i) << endl;
+            cout << "EmbeddingDims " << features_->EmbeddingDims(i) << endl;
+        }*//*
+
+        while (!transition_system_->IsFinalState(*state)) {
+            ParserAction action = transition_system_->GetNextGoldAction(*state);
+            string action_string = transition_system_->ActionAsString(action, *state);
+            LOG(INFO) << "Performing action: " << action_string;
+            transition_system_->PerformActionWithoutHistory(action, state);
+            LOG(INFO) << "Parser State: " << state->ToString();
+
+            vector<vector<SparseFeatures>> features = features_->ExtractSparseFeatures(workspace, *state);
+            cout << action << "";
+            for (size_t i = 0; i < features.size(); ++i) {
+                for (size_t j = 0; j < features[i].size(); ++j) {
+                    SparseFeatures sf = features[i][j];
+                    for (uint64_t id : sf.id_) {
+                        cout << id << "";
+                    }
+                }
+            }
+            cout << endl;
+        }
+        delete state;
+    }
+}*/
+
+int TestReaderOP(int argc, char *argv[]) {
+    // Init Parser Config.
+    TaskContext *context = new TaskContext();
+    TaskSpec *spec = context->mutable_spec();
+
+    TaskInput *input = spec->add_input();
+    input->set_name("training-corpus");
+    TaskInput::Part *input_part = input->add_part();
+    input_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/test/dev.conll.utf8");
+    //input->set_record_format("conll-sentence");
+
+    TaskInput *label_map_input = spec->add_input();
+    label_map_input->set_name("label-map");
+    TaskInput::Part *label_part = label_map_input->add_part();
+    label_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/label-map");
+
+    TaskInput *tag_map_input = spec->add_input();
+    tag_map_input->set_name("tag-map");
+    TaskInput::Part *tag_part = tag_map_input->add_part();
+    tag_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/tag-map");
+
+    TaskInput *word_map_input = spec->add_input();
+    word_map_input->set_name("word-map");
+    TaskInput::Part *word_part = word_map_input->add_part();
+    word_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/word-map");
+
+    TaskSpec::Parameter *feature_param = spec->add_parameter();
+    feature_param->set_name("parser_features");
+    feature_param->set_value("input.word input(1).word input(2).word input(3).word stack.word stack(1).word stack(2).word stack(3).word stack.child(1).word stack.child(1).sibling(-1).word stack.child(-1).word stack.child(-1).sibling(1).word stack(1).child(1).word stack(1).child(1).sibling(-1).word stack(1).child(-1).word stack(1).child(-1).sibling(1).word stack.child(2).word stack.child(-2).word stack(1).child(2).word stack(1).child(-2).word;input.tag input(1).tag input(2).tag input(3).tag stack.tag stack(1).tag stack(2).tag stack(3).tag stack.child(1).tag stack.child(1).sibling(-1).tag stack.child(-1).tag stack.child(-1).sibling(1).tag stack(1).child(1).tag stack(1).child(1).sibling(-1).tag stack(1).child(-1).tag stack(1).child(-1).sibling(1).tag stack.child(2).tag stack.child(-2).tag stack(1).child(2).tag stack(1).child(-2).tag;stack.child(1).label stack.child(1).sibling(-1).label stack.child(-1).label stack.child(-1).sibling(1).label stack(1).child(1).label stack(1).child(1).sibling(-1).label stack(1).child(-1).label stack(1).child(-1).sibling(1).label stack.child(2).label stack.child(-2).label stack(1).child(2).label stack(1).child(-2).label");
+
+    TaskSpec::Parameter *embedding_name = spec->add_parameter();
+    embedding_name->set_name("parser_embedding_names");
+    embedding_name->set_value("words;tags;labels");
+
+    TaskSpec::Parameter *embedding_dims = spec->add_parameter();
+    embedding_dims->set_name("parser_embedding_dims");
+    embedding_dims->set_value("64;32;32");
+
+    DecodedParseReader *decoder = new DecodedParseReader(context);
+    decoder->Compute();
+    decoder->ComputeMatrix();
+    CoNLLSyntaxFormat conll;
+    for (map<string, Sentence>::const_iterator it = decoder->sentence_map_.begin();
+            it != decoder->sentence_map_.end(); ++it) {
+        string docid = it->first;
+        Sentence sen = it->second;
+        string value;
+        conll.ConvertToString(sen, &docid, &value);
+        cout << value << endl;
+    }
+
+    delete decoder;
 }
 
 int main(int argc, char *argv[]) {
-    TestEmbeddingFeatureExtractor(argc, argv);
+    // TestEmbeddingFeatureExtractor(argc, argv);
+    // TestTaggerSystem(argc, argv);
+    // TestParserEmbeddingFeatureExtractor(argc, argv);
+    TestReaderOP(argc, argv);
     return 0;
 }

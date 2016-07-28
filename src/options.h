@@ -4,14 +4,12 @@
 #include "base.h"
 
 struct Options {
-  string input_file_ = "log";
-  string word_map_file_ = "word-map";
-  string lc_word_map_file_ = "lcword-map";
-  string tag_map_file_ = "tag-map";
-  string category_map_file_ = "category-map";
-  string label_map_file_ = "label-map";
+  string input_file_ = "/Users/Sheng/WorkSpace/transition-notes/test/dev.conll.utf8";
+  string word_map_file_ = "/Users/Sheng/WorkSpace/transition-notes/word-map";
+  string lc_word_map_file_ = "/Users/Sheng/WorkSpace/transition-notes/lcword-map";
+  string tag_map_file_ = "/Users/Sheng/WorkSpace/transition-notes/tag-map";
+  string category_map_file_ = "/Users/Sheng/WorkSpace/transition-notes/category-map";
+  string label_map_file_ = "/Users/Sheng/WorkSpace/transition-notes/label-map";
 };
-
-
 
 #endif /* end of include guard: OPTIONS_H */
