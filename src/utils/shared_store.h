@@ -94,7 +94,7 @@ class SharedStore {
 
   // Map from keys to shared objects.
   static SharedObjectMap *shared_object_map_;
-  static mutex shared_object_map_mutex_;
+  //static mutex shared_object_map_mutex_;
 
 };
 

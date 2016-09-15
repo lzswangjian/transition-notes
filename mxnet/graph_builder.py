@@ -15,7 +15,7 @@ from collections import namedtuple
 import data_iter
 
 ReLUModel = namedtuple("ReLUModel", ['relu_exec', 'symbol',
-    'data', 'label', 'param_blocks'])
+                                     'data', 'label', 'param_blocks'])
 
 class GreedyParser(object):
     """Builds a Chen & Manning style greedy neural net parser.
@@ -27,15 +27,16 @@ class GreedyParser(object):
         embedding_sizes: int list of same length as num_features of the desired embedding layer sizes.
     """
     def __init__(self,
-            num_actions,
-            num_features,
-            num_feature_ids,
-            embedding_sizes,
-            hidden_layer_sizes,
-            learning_rate=0.5,
-            max_grad_norm=5.0,
-            epoch=10,
-            optimizer='sgd'):
+                 num_actions,
+                 num_features,
+                 num_feature_ids,
+                 embedding_sizes,
+                 hidden_layer_sizes,
+                 learning_rate=0.1,
+                 max_grad_norm=5.0,
+                 epoch=13,
+                 optimizer='sgd',
+                 decay_steps=4000):
         self._num_actions = num_actions
         self._num_features = num_features
         self._num_feature_ids = num_feature_ids
@@ -47,6 +48,9 @@ class GreedyParser(object):
         self._epoch = epoch
         self._hidden_layer_sizes = hidden_layer_sizes
         self._feature_size = len(embedding_sizes)
+        self._decay_steps = decay_steps
+        self._step = 0
+        self._decay_rate = 0.96
 
     @property
     def embedding_size(self,):
@@ -62,7 +66,7 @@ class GreedyParser(object):
         data = mx.sym.Variable('feature_%s_data' % name)
         embed_weight = mx.sym.Variable('%s_embed_weight' % name)
         hidden = mx.sym.Embedding(data=data, weight=embed_weight,
-                input_dim=vocab_size, output_dim=embedding_size)
+                                  input_dim=vocab_size, output_dim=embedding_size)
         hidden = mx.sym.Reshape(hidden, target_shape=(0, num_features * embedding_size))
         return hidden
 
@@ -91,7 +95,8 @@ class GreedyParser(object):
         label = mx.sym.Variable('label')
         softmax_weight = mx.sym.Variable('softmax_weight')
         softmax_bias = mx.sym.Variable('softmax_bias')
-        fc = mx.sym.FullyConnected(data=last_layer, weight=softmax_weight, bias=softmax_bias, num_hidden=self._num_actions)
+        fc = mx.sym.FullyConnected(data=last_layer, weight=softmax_weight,
+                                   bias=softmax_bias, num_hidden=self._num_actions)
         sm = mx.sym.SoftmaxOutput(data=fc, label=label)
         return sm
 
@@ -117,7 +122,8 @@ class GreedyParser(object):
             if self._IsParameter(name):
                 arg_grads[name] = mx.nd.zeros(shape, ctx)
 
-        relu_exec = relu_model.bind(ctx=ctx, args=arg_arrays, args_grad=arg_grads, grad_req='add')
+        relu_exec = relu_model.bind(ctx=ctx, args=arg_arrays,
+                                    args_grad=arg_grads, grad_req='add')
 
         param_blocks = []
         arg_dict = dict(zip(arg_names, relu_exec.arg_arrays))
@@ -132,13 +138,15 @@ class GreedyParser(object):
         label = relu_exec.arg_dict['label']
 
         self._relu_model = ReLUModel(relu_exec=relu_exec, symbol=relu_model,
-                data=data, label=label, param_blocks=param_blocks)
+                                     data=data, label=label, param_blocks=param_blocks)
 
     def TrainModel(self, X_train, y_train):
         m = self._relu_model
         # Create optimizer
         opt = mx.optimizer.create(self._optimizer)
         opt.lr = self._learning_rate
+        opt.wd = 0.0001
+        opt.momentum = 0.9
         updater = mx.optimizer.get_updater(opt)
 
         print >> logs, "start training..."
@@ -146,11 +154,22 @@ class GreedyParser(object):
             tic = time.time()
             num_correct = 0
             num_total = 0
+            # TODO:: use dataIter instead (for padding).
             for begin in range(0, X_train.shape[0], self._batch_size):
                 batchX = X_train[begin:begin+self._batch_size]
                 batchY = y_train[begin:begin+self._batch_size]
                 if batchX.shape[0] != self._batch_size:
                     continue
+
+                # decay learning rate.
+                if self._step > self._decay_steps and self._step % self._decay_steps == 0:
+                    self._learning_rate *= self._decay_rate ** (int(self._step /
+                                                                    self._decay_steps))
+                    opt.lr = self._learning_rate
+                    print >> logs, 'decay learning rate, now lr is [%.6f], global step [%d]' % (opt.lr, self._step)
+                
+                # accumlating step.
+                self._step += 1
 
                 start = 0
                 for i in range(self._feature_size):
@@ -180,7 +199,6 @@ class GreedyParser(object):
                     # Reset gradient to zero
                     grad[:] = 0.0
 
-            # Decay learning rate
 
             # End of training loop
             toc = time.time()
@@ -189,7 +207,7 @@ class GreedyParser(object):
 
             print >> logs, 'Iter [%d] Train: Time: %.3fs, Training Accuracy: %.3f' % (iteration, train_time, train_acc)
 
-            if iteration == 5:
+            if iteration == 9:
                 prefix = 'greedy'
                 self._relu_model.symbol.save('%s-symbol.json' % prefix)
                 save_dict = {('arg:%s' % k) : v for k, v in self._relu_model.relu_exec.arg_dict.items()
@@ -207,15 +225,15 @@ class GreedyParser(object):
 
 
 def main():
-    num_actions = 28
+    num_actions = 37
     num_features = [20, 20, 12]
-    num_feature_ids = [4497, 33, 21]
+    num_feature_ids = [34346, 34, 21]
     embedding_sizes = [64, 32, 32]
-    hidden_layer_sizes = [50]
+    hidden_layer_sizes = [200, 200]
     batch_size = 32
     xdata, ydata = data_iter.read_data(sys.argv[1])
     parser = GreedyParser(num_actions, num_features, num_feature_ids, embedding_sizes, hidden_layer_sizes)
-    parser.SetupModel(mx.cpu(), batch_size=batch_size)
+    parser.SetupModel(mx.gpu(0), batch_size=batch_size)
     parser.TrainModel(xdata, ydata)
     # parser.plot_network()
 

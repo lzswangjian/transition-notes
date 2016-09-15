@@ -26,7 +26,7 @@ class SentenceBatch {
 
     int size() const { return size_; }
 
-    Sentence *sentence(int index) { return sentences_[index]; }
+    Sentence *sentence(int index) { return sentences_[index].get(); }
 
   private:
     // Running tally of non-nullptr states in the batch.
@@ -42,5 +42,5 @@ class SentenceBatch {
     std::unique_ptr<TextReader> reader_;
 
     // Batch: Sentence objects.
-    std::vector<Sentence *> sentences_;
+    std::vector<std::unique_ptr<Sentence>> sentences_;
 };

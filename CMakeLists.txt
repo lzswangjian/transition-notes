@@ -33,7 +33,7 @@ set(SOURCE_FILES src/io/text_formats.h src/utils/utils.h src/utils/utils.cc
         src/reader_ops.cc
         src/cli_main.cc)
 
-LINK_DIRECTORIES(/Users/Sheng/WorkSpace/transition-notes/lib)
+LINK_DIRECTORIES(lib)
 add_executable(SyntaxNet ${SOURCE_FILES})
 
 TARGET_LINK_LIBRARIES(SyntaxNet mxnet)

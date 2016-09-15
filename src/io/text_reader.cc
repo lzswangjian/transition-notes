@@ -11,9 +11,10 @@ Sentence *TextReader::Read() {
     vector<Sentence *> sentences;
     string key, value;
     while (sentences.empty() && format_->ReadRecord(file_, &value)) {
-        key = file_name_ + ":" + utils::Printf(sentence_count_);
-        format_->ConvertFromString(key, value, &sentences);
-        CHECK_LE(sentences.size(), 1);
+      //key = file_name_ + ":" + utils::Printf(sentence_count_);
+      key = utils::Printf(sentence_count_);
+      format_->ConvertFromString(key, value, &sentences);
+      CHECK_LE(sentences.size(), 1);
     }
 
     if (sentences.empty()) {

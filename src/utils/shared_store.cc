@@ -19,7 +19,7 @@ limitations under the License.
 SharedStore::SharedObjectMap *SharedStore::shared_object_map_ =
     new SharedObjectMap;
 
-mutex SharedStore::shared_object_map_mutex_;
+//mutex SharedStore::shared_object_map_mutex_;
 
 SharedStore::SharedObjectMap *SharedStore::shared_object_map() {
   return shared_object_map_;

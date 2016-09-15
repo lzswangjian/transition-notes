@@ -49,6 +49,4 @@ def read_data(input_file):
     print >> logs, 'contains %d labels' % len(set(YData))
     return np.array(XData), np.array(YData)
 
-read_data(sys.argv[1])
-
 

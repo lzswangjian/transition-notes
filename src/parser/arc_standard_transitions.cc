@@ -207,10 +207,10 @@ public:
                 PerformShift(state);
                 break;
             case LEFT_ARC:
-                PerformLeftArc(state, action);
+                PerformLeftArc(state, Label(action));
                 break;
             case RIGHT_ARC:
-                PerformRightArc(state, action);
+                PerformRightArc(state, Label(action));
                 break;
         }
     }

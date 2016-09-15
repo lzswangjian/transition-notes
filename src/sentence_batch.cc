@@ -8,14 +8,14 @@ void SentenceBatch::Init(TaskContext *context) {
 
 bool SentenceBatch::AdvanceSentence(int index) {
     if (sentences_[index] == nullptr) ++size_;
-
-    Sentence* sentence = reader_->Read();
+    sentences_[index].reset();
+    std::unique_ptr<Sentence> sentence(reader_->Read());
     if (sentence == nullptr) {
         --size_;
         return false;
     }
 
     // Preprocess the new sentence for the parser state.
-    sentences_[index] = sentence;
+    sentences_[index] = std::move(sentence);
     return true;
 }

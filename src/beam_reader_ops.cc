@@ -4,9 +4,8 @@
 #include <memory>
 #include <string>
 
-
 /*!
- * \brief
+ * \brief ParserStateWithHistory
  * Wraps ParserState so that the history of transitions (actions
  * performed and the beam slot they were performed in) are recorded.
  */
@@ -17,8 +16,8 @@ public:
   // New state obtained by cloning the given state and applying the given action.
   // The given beam slot and action are appended to the history.
   ParserStateWithHistory(const ParserStateWithHistory &next,
-                         const ParserTransitionSystem &transitions, int32 slot,
-                         int32 action, float score)
+                         const ParserTransitionSystem &transitions, int32_t slot,
+                         int32_t action, float score)
     : state(next.state->Clone()),
       slot_history(next.slot_history),
       action_history(next.action_history),
@@ -248,7 +247,7 @@ private:
         state_ = DYING;
         ++bottom;
       }
-      slots_erase(bottom);
+      slots_.erase(bottom);
     }
   }
 
@@ -291,7 +290,7 @@ private:
   // Limits the number of slots on the beam.
   const BatchStateOptions &options_;
 
-  it gold_action_ = -1;
+  int gold_action_ = -1;
   State state_ = ALIVE;
   bool all_final_ = false;
 };
@@ -307,7 +306,7 @@ public:
   ~BatchState() { SharedStore::Release(label_map_); }
 
   void Init(TaskContext *task_context) {
-    // Create sentence bath
+    // Create sentence batch
     sentence_batch_.reset(new SentenceBatch(BatchSize(),
                                             options.corpus_name));
     sentence_batch_.Init(task_context);
@@ -378,7 +377,7 @@ public:
       // If the beam is ALIVE or DYING (but not DEAD), we want to
       // output the activations.
       const BeamState &beam = beams_[beam_id];
-      const int beam_size = beam.IsDead() ? 0 : beam:BeamSize();
+      const int beam_size = beam.IsDead() ? 0 : beam.BeamSize();
       offsets[beam_id + 1] = offsets[beam_id] + beam_size;
     }
     const int output_size = offsets.back();
@@ -386,6 +385,13 @@ public:
   }
 
   tensorflow::Status PopulateFeatureOutputs(OpKernelContext *context) {
+    const int feature_size = FeatureSize();
+    vector<vector<vector<SparseFeatures> > > features(feature_size);
+    for (int beam_id = 0; beam_id < BatchSize(); ++beam_id) {
+      if (!beams_[beam_id].IsDead()) {
+        beams_[beam_id].PopulateFeatureOutputs(&features);
+      }
+    }
   }
   
   // Returns the offset (i.e. row number) of a particular beam at a
@@ -491,7 +497,7 @@ private:
 class BeamParser : public OpKernel {
 public:
   explicit BeamParser(OpKernelConstruction *context)
-    :  OpKernel(context) {
+    : OpKernel(context) {
     int feature_size;
     OP_REQUIRES_OK(context, context->GetAttr("feature_size", &feature_size));
 
@@ -640,6 +646,5 @@ private:
   void ComputeTokenAccuracy(const ParserState &state,
                             const string &scoring_type,
                             int *num_tokens, int *num_correct) {
-    
   }
 };

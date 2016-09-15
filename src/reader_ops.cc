@@ -22,7 +22,6 @@ public:
                 new SentenceBatch(max_batch_size_, corpus_name));
         sentence_batch_->Init(context);
 
-
         // Set up the parsing features and transition system.
         states_.resize(max_batch_size_);
         workspaces_.resize(max_batch_size_);
@@ -36,7 +35,7 @@ public:
 
         transition_system_->Init(context);
 
-        string label_map_path = "/Users/Sheng/WorkSpace/transition-notes/label-map";
+        string label_map_path = "label-map";
                 // TaskContext::InputFile(*context->GetInput("label_map"));
         label_map_ = SharedStoreUtils::GetWithDefaultName<TermFrequencyMap>(label_map_path, 0, 0);
 
@@ -61,8 +60,6 @@ public:
     }
 
     virtual void Compute() {
-        mu_.lock();
-
         // Advances states to the next position.
         PerformActions();
 
@@ -72,9 +69,11 @@ public:
 
             // Switches to the next sentence if we're at a final state.
             while (transition_system_->IsFinalState(*state(i))) {
-                VLOG(2) << "Advance sentence" << i;
+                VLOG(2) << "Advance sentence " << i;
                 AdvanceSentence(i);
-                if (state(i) == nullptr) break;  // EOF has been reached.
+                if (state(i) == nullptr) {
+                  break;  // EOF has been reached.
+                }
             }
         }
 
@@ -113,8 +112,6 @@ public:
 
         // Create outputs specific to this reader.
         AddAdditionalOutputs();
-        mu_.unlock();
-        LOG(INFO) << "feature outputs[0] size " << feature_outputs_[0].size();
     }
 
 protected:
@@ -135,13 +132,13 @@ protected:
         return *transition_system_.get();
     }
 
+public:
+    const int num_epochs() const { return num_epochs_; }
+
 private:
     TaskContext task_context_;
 
     string arg_prefix_;
-
-    // mutex to synchronize access to Compute.
-    mutex mu_;
 
     // How many times the document source has been rewinded.
     int num_epochs_ = 0;
@@ -175,8 +172,7 @@ public:
 class GoldParseReader : public ParsingReader {
 public:
     explicit GoldParseReader(TaskContext *context)
-            : ParsingReader(context) {
-    }
+            : ParsingReader(context) {}
 
 private:
     // Always performs the next gold action for each state.
@@ -206,32 +202,38 @@ class DecodedParseReader : public ParsingReader {
 public:
     explicit DecodedParseReader(TaskContext *context)
             : ParsingReader(context) {
-        string symbol = "/Users/Sheng/WorkSpace/transition-notes/mxnet/greedy-symbol.json";
-        string params = "/Users/Sheng/WorkSpace/transition-notes/mxnet/greedy-0005.params";
+        // Put symbol, param into context.
+        string symbol = "mxnet/greedy-symbol.json";
+        string params = "mxnet/greedy-0009.params";
         greedy_model_ = new Model(max_batch_size());
         greedy_model_->Load(symbol, params);
         greedy_model_->Init(context);
     }
 
 private:
-    void AdvanceSentence(int index) override {
-        ParsingReader::AdvanceSentence(index);
-        if (state(index)) {
-            docids_.push_front(state(index)->sentence().docid());
-        }
+  void AdvanceSentence(int index) override {
+    ParsingReader::AdvanceSentence(index);
+    if (state(index)) {
+      docids_.push_front(state(index)->sentence().docid());
     }
+  }
     
 public:
     void ComputeMatrix() {
         vector<string> feature_names = {"feature_0_data", "feature_1_data", "feature_2_data"};
         vector<int> feature_sizes = {20, 20, 12};
-        greedy_model_->DoPredict(feature_outputs_, feature_names, feature_sizes, &scores_matrix_);
-        /*for (size_t i = 0; i < scores_matrix_.row_; ++i) {
-            for (size_t j = 0; j < scores_matrix_.col_; ++j) {
-                LOG(INFO) << "matrix(" << i << "," << j << ")=" << scores_matrix_(i, j);
+        // padding.
+        int sentence_size = this->batch_size();
+        int max_batch_size = this->max_batch_size();
+        for (int pad_size = sentence_size; pad_size < max_batch_size; ++pad_size) {
+          for (size_t k = 0; k < feature_sizes.size(); ++k) {
+            for (int fsize = 0; fsize < feature_sizes[k]; ++fsize) {
+              feature_outputs_[k].push_back(0);
             }
-        }*/
-        this->PerformActions();
+          }
+        }
+        
+        greedy_model_->DoPredict(feature_outputs_, feature_names, feature_sizes, &scores_matrix_);
     }
 
     void ComputeTokenAccuracy(const ParserState &state) {
@@ -255,14 +257,19 @@ public:
                         best_score = score;
                     }
                 }
+                // LOG(INFO) << "Parser action: " << transition_system().ActionAsString(best_action, *state);
                 transition_system().PerformAction(best_action, state);
 
                 // Update the # of scored correct tokens if this is the last state
                 // in the sentence and save the annotated document.
                 if (transition_system().IsFinalState(*state)) {
-                    cout << "final state" << endl;
-                    sentence_map_[state->sentence().docid()] = state->sentence();
-                    state->AddParseToDocument(&sentence_map_[state->sentence().docid()]);
+                    sentence_map_[state->sentence().docid()] = state->mutable_sentence();
+                    state->AddParseToDocument(sentence_map_[state->sentence().docid()]);
+                    CoNLLSyntaxFormat conll;
+                    string key;
+                    string value;
+                    conll.ConvertToString(*state->mutable_sentence(), &key, &value);
+                    conll_result_[key] =value;
                 }
                 ++batch_index;
             }
@@ -272,6 +279,12 @@ public:
     void AddAdditionalOutputs() const override {
     }
 
+    void OutputCoNLLResult() {
+      for (size_t i = 0; i < conll_result_.size(); ++i) {
+        cout << conll_result_[utils::Printf(i)];
+      }
+    }
+
 public:
     int num_tokens_ = 0;
     int num_correct_ = 0;
@@ -279,11 +292,13 @@ public:
     string scoring_type_;
 
     std::deque<string> docids_;
-    mutable map<string, Sentence> sentence_map_;
+    map<string, Sentence*> sentence_map_;
     typedef Matrix ScoreMatrix;
 
     ScoreMatrix scores_matrix_;
     Model *greedy_model_;
+
+    map<string, string> conll_result_;
 };
 
 class WordEmbeddingInitializer {

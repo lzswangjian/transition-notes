@@ -1,5 +1,7 @@
 #include <iostream>
 #include "reader_ops.cc"
+#include "options.h"
+#include "lexicon/lexicon_builder.cc"
 
 using namespace std;
 
@@ -49,7 +51,7 @@ using namespace std;
 
     delete state;
     return 0;
-}
+}*/
 
 int TestLexiconBuilder(int argc, char *argv[]) {
     LeiconBuilder lex_builder_;
@@ -58,16 +60,16 @@ int TestLexiconBuilder(int argc, char *argv[]) {
     return 0;
 }
 
-int TestFMLParser(int argc, char *argv[]) {
+/*int TestFMLParser(int argc, char *argv[]) {
     FMLParser parser;
     FeatureExtractorDescriptor *result = new FeatureExtractorDescriptor();
     parser.Parse("stack(3).tag", result);
 
     cout << "Runs to here" << endl;
     return 0;
-}
+}*/
 
-int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
+/*int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
     // Init Parser Config.
     TaskContext *context = new TaskContext();
     TaskSpec *spec = context->mutable_spec();
@@ -152,11 +154,11 @@ int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
         workspace.Reset(registry);
         features_->Preprocess(&workspace, state);
 
-        *//*for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
+        for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
             cout << "Feature Size " << features_->FeatureSize(i) << endl;
             cout << "Domain Size " << features_->EmbeddingSize(i) << endl;
             cout << "EmbeddingDims " << features_->EmbeddingDims(i) << endl;
-        }*//*
+        }
 
         while (!transition_system_->IsFinalState(*state)) {
             ParserAction action = transition_system_->GetNextGoldAction(*state);
@@ -179,7 +181,7 @@ int TestEmbeddingFeatureExtractor(int argc, char *argv[]) {
         }
         delete state;
     }
-}
+}*/
 
 int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
     // Init Parser Config.
@@ -189,22 +191,22 @@ int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
     TaskInput *input = spec->add_input();
     input->set_name("training-corpus");
     TaskInput::Part *input_part = input->add_part();
-    input_part->set_file_pattern("test/dev.conll.utf8");
+    input_part->set_file_pattern("test/train.conll.utf8");
 
     TaskInput *label_map_input = spec->add_input();
     label_map_input->set_name("label-map");
     TaskInput::Part *label_part = label_map_input->add_part();
-    label_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/label-map");
+    label_part->set_file_pattern("label-map");
 
     TaskInput *tag_map_input = spec->add_input();
     tag_map_input->set_name("tag-map");
     TaskInput::Part *tag_part = tag_map_input->add_part();
-    tag_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/tag-map");
+    tag_part->set_file_pattern("tag-map");
 
     TaskInput *word_map_input = spec->add_input();
     word_map_input->set_name("word-map");
     TaskInput::Part *word_part = word_map_input->add_part();
-    word_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/word-map");
+    word_part->set_file_pattern("word-map");
 
     TaskSpec::Parameter *feature_param = spec->add_parameter();
     feature_param->set_name("parser_features");
@@ -266,34 +268,33 @@ int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
         workspace.Reset(registry);
         features_->Preprocess(&workspace, state);
 
-        *//*for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
+        /*for (size_t i = 0; i < features_->NumEmbeddings(); ++i) {
             cout << "Feature Size " << features_->FeatureSize(i) << endl;
             cout << "Domain Size " << features_->EmbeddingSize(i) << endl;
             cout << "EmbeddingDims " << features_->EmbeddingDims(i) << endl;
-        }*//*
+        }*/
 
         while (!transition_system_->IsFinalState(*state)) {
             ParserAction action = transition_system_->GetNextGoldAction(*state);
             string action_string = transition_system_->ActionAsString(action, *state);
-            LOG(INFO) << "Performing action: " << action_string;
-            transition_system_->PerformActionWithoutHistory(action, state);
-            LOG(INFO) << "Parser State: " << state->ToString();
 
             vector<vector<SparseFeatures>> features = features_->ExtractSparseFeatures(workspace, *state);
             cout << action << "";
             for (size_t i = 0; i < features.size(); ++i) {
                 for (size_t j = 0; j < features[i].size(); ++j) {
-                    SparseFeatures sf = features[i][j];
-                    for (uint64_t id : sf.id_) {
-                        cout << id << "";
-                    }
+                  cout << features[i][j].id_[0] << "";
                 }
             }
             cout << endl;
+
+            LOG(INFO) << "Performing action: " << action_string;
+            transition_system_->PerformActionWithoutHistory(action, state);
+            LOG(INFO) << "Parser State: " << state->ToString();
         }
         delete state;
+        break;
     }
-}*/
+}
 
 int TestReaderOP(int argc, char *argv[]) {
     // Init Parser Config.
@@ -303,23 +304,23 @@ int TestReaderOP(int argc, char *argv[]) {
     TaskInput *input = spec->add_input();
     input->set_name("training-corpus");
     TaskInput::Part *input_part = input->add_part();
-    input_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/test/dev.conll.utf8");
+    input_part->set_file_pattern("test/test.conll.utf8");
     //input->set_record_format("conll-sentence");
 
     TaskInput *label_map_input = spec->add_input();
     label_map_input->set_name("label-map");
     TaskInput::Part *label_part = label_map_input->add_part();
-    label_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/label-map");
+    label_part->set_file_pattern("label-map");
 
     TaskInput *tag_map_input = spec->add_input();
     tag_map_input->set_name("tag-map");
     TaskInput::Part *tag_part = tag_map_input->add_part();
-    tag_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/tag-map");
+    tag_part->set_file_pattern("tag-map");
 
     TaskInput *word_map_input = spec->add_input();
     word_map_input->set_name("word-map");
     TaskInput::Part *word_part = word_map_input->add_part();
-    word_part->set_file_pattern("/Users/Sheng/WorkSpace/transition-notes/word-map");
+    word_part->set_file_pattern("word-map");
 
     TaskSpec::Parameter *feature_param = spec->add_parameter();
     feature_param->set_name("parser_features");
@@ -334,22 +335,19 @@ int TestReaderOP(int argc, char *argv[]) {
     embedding_dims->set_value("64;32;32");
 
     DecodedParseReader *decoder = new DecodedParseReader(context);
-    decoder->Compute();
-    decoder->ComputeMatrix();
-    CoNLLSyntaxFormat conll;
-    for (map<string, Sentence>::const_iterator it = decoder->sentence_map_.begin();
-            it != decoder->sentence_map_.end(); ++it) {
-        string docid = it->first;
-        Sentence sen = it->second;
-        string value;
-        conll.ConvertToString(sen, &docid, &value);
-        cout << value << endl;
+    while (true) {
+      decoder->Compute();
+      decoder->ComputeMatrix();
+      if (decoder->num_epochs() > 1) {
+        break;
+      }
     }
 
-    delete decoder;
+    decoder->OutputCoNLLResult();
 }
 
 int main(int argc, char *argv[]) {
+    // TestLexiconBuilder(argc, argv);
     // TestEmbeddingFeatureExtractor(argc, argv);
     // TestTaggerSystem(argc, argv);
     // TestParserEmbeddingFeatureExtractor(argc, argv);
