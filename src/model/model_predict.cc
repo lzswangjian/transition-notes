@@ -134,7 +134,7 @@ public:
     }
 
 private:
-    int dev_type_ = 1; // 1: cpu, 2: gpu
+    int dev_type_ = 2; // 1: cpu, 2: gpu
     int dev_id_ = 0; // arbitrary
     mx_uint num_input_nodes_;
 

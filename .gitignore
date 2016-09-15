@@ -42,7 +42,7 @@ deps
 recommonmark
 
 # Idea
-.idea
+.idea/
 
 # CMake
 CMakeCache.txt
