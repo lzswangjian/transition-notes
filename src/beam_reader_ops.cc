@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 
+#include "model/model_predict.cc"
+
 /*!
  * \brief ParserStateWithHistory
  * Wraps ParserState so that the history of transitions (actions
@@ -77,7 +79,7 @@ public:
   typedef std::pair<double, int> KeyType;
   typedef std::multimap<KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaType;
   typedef std::pair<KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaItem;
-  typedef Eigen::Tensor<float, 2, Eigen::RowMajor, Eigen::DenseIndex> ScoreMatrixType;
+  typedef ScoreMatrix ScoreMatrixType;
 
   // The beam can be
   //   - ALIVE: parsing is still active, features are being output for at least
@@ -176,7 +178,7 @@ public:
   void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
     for (const AgendaItem &item : slots_) {
       vector<vector<SparseFeatures> > f =
-        features_->ExtractSparseFeatures(*workspaces, *item.second->state);
+        features_->ExtractSparseFeatures(*workspace_, *item.second->state);
       for (size_t i = 0; i < f.size(); ++i) (*features)[i].push_back(f[i]);
     }
   }
@@ -452,10 +454,9 @@ private:
 
 // Creates a BeamState and hooks it up with a parser. This Op needs to
 // remain alive for the duration of the parse.
-class BeamParseReader : public OpKernel {
+class BeamParseReader {
 public:
-  explicit BeamParseReader(OpKernelConstruction *context)
-    : OpKernel(context) {
+  explicit BeamParseReader(TaskContext *context) {
     string file_path;
     int feature_size;
     BatchStateOptions options;
@@ -469,12 +470,11 @@ public:
     const int required_size = batch_state_->FeatureSize();
   }
 
-  void Compute(OpKernelContext *context) override {
-    mu_.lock();
+  void Compute(TaskContext *context) override {
     // Write features.
     batch_state_->ResetBeams();
     batch_state_->ResetOffsets();
-    batch_state_->PopulateFeatureOutputs();
+    batch_state_->PopulateFeatureOutputs(context);
 
     // Forward the beam state vector.
     Tensor *output;
@@ -483,7 +483,6 @@ public:
 
     // Ouput number of epochs.
     output->scalar<int32_t>()() = batch_state_->Epoch();
-    mu_.unlock();
   }
 
 private:
