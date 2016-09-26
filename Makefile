@@ -123,32 +123,59 @@ SyntaxNet/fast:
 	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/build
 .PHONY : SyntaxNet/fast
 
-src/cli_main.o: src/cli_main.cc.o
+src/beam_parser_test.o: src/beam_parser_test.cc.o
 
-.PHONY : src/cli_main.o
+.PHONY : src/beam_parser_test.o
 
 # target to build an object file
-src/cli_main.cc.o:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.o
-.PHONY : src/cli_main.cc.o
+src/beam_parser_test.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.o
+.PHONY : src/beam_parser_test.cc.o
 
-src/cli_main.i: src/cli_main.cc.i
+src/beam_parser_test.i: src/beam_parser_test.cc.i
 
-.PHONY : src/cli_main.i
+.PHONY : src/beam_parser_test.i
 
 # target to preprocess a source file
-src/cli_main.cc.i:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.i
-.PHONY : src/cli_main.cc.i
+src/beam_parser_test.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.i
+.PHONY : src/beam_parser_test.cc.i
 
-src/cli_main.s: src/cli_main.cc.s
+src/beam_parser_test.s: src/beam_parser_test.cc.s
 
-.PHONY : src/cli_main.s
+.PHONY : src/beam_parser_test.s
 
 # target to generate assembly for a file
-src/cli_main.cc.s:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.s
-.PHONY : src/cli_main.cc.s
+src/beam_parser_test.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.s
+.PHONY : src/beam_parser_test.cc.s
+
+src/beam_reader_ops.o: src/beam_reader_ops.cc.o
+
+.PHONY : src/beam_reader_ops.o
+
+# target to build an object file
+src/beam_reader_ops.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.o
+.PHONY : src/beam_reader_ops.cc.o
+
+src/beam_reader_ops.i: src/beam_reader_ops.cc.i
+
+.PHONY : src/beam_reader_ops.i
+
+# target to preprocess a source file
+src/beam_reader_ops.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.i
+.PHONY : src/beam_reader_ops.cc.i
+
+src/beam_reader_ops.s: src/beam_reader_ops.cc.s
+
+.PHONY : src/beam_reader_ops.s
+
+# target to generate assembly for a file
+src/beam_reader_ops.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.s
+.PHONY : src/beam_reader_ops.cc.s
 
 src/feature/embedding_feature_extractor.o: src/feature/embedding_feature_extractor.cc.o
 
@@ -780,9 +807,12 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... SyntaxNet"
-	@echo "... src/cli_main.o"
-	@echo "... src/cli_main.i"
-	@echo "... src/cli_main.s"
+	@echo "... src/beam_parser_test.o"
+	@echo "... src/beam_parser_test.i"
+	@echo "... src/beam_parser_test.s"
+	@echo "... src/beam_reader_ops.o"
+	@echo "... src/beam_reader_ops.i"
+	@echo "... src/beam_reader_ops.s"
 	@echo "... src/feature/embedding_feature_extractor.o"
 	@echo "... src/feature/embedding_feature_extractor.i"
 	@echo "... src/feature/embedding_feature_extractor.s"

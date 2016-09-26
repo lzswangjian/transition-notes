@@ -4,7 +4,17 @@
 #include <memory>
 #include <string>
 
+#include "utils/utils.h"
+#include "sentence_batch.h"
+#include "parser/parser_state.h"
+#include "utils/task_context.h"
+#include "utils/work_space.h"
+#include "feature/embedding_feature_extractor.h"
+#include "utils/shared_store.h"
+#include "parser/arc_standard_transitions.cc"
 #include "model/model_predict.cc"
+
+typedef Matrix ScoreMatrixType;
 
 /*!
  * \brief ParserStateWithHistory
@@ -78,8 +88,7 @@ public:
   // bottom.
   typedef std::pair<double, int> KeyType;
   typedef std::multimap<KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaType;
-  typedef std::pair<KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaItem;
-  typedef ScoreMatrix ScoreMatrixType;
+  typedef std::pair<const KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaItem;
 
   // The beam can be
   //   - ALIVE: parsing is still active, features are being output for at least
@@ -98,7 +107,7 @@ public:
         gold_ == nullptr || transition_system_->IsFinalState(*gold_)) {
       AdvanceSentence();
     }
-    slots.clear();
+    slots_.clear();
     if (gold_ == nullptr) {
       state_ = DEAD; // EOF has been reached.
     } else {
@@ -112,7 +121,7 @@ public:
   // Check whether all states in the beam have reached final state.
   void UpdateAllFinal() {
     all_final_ = true;
-    for (const AgendaItem &item : slots_) {
+    for (auto &item : slots_) {
       if (!transition_system_->IsFinalState(*item.second->state)) {
         all_final_ = false;
         break;
@@ -129,7 +138,7 @@ public:
   // to remain in the beam at all times, even if it scores low. This is to ensure that the gold
   // path can be used for training at the moment it would otherwise fall off (can be absent from)
   // the beam.
-  void Advance(const ScoreMatrixType &scores) {
+  void Advance(ScoreMatrixType &scores) {
     if (state_ == DYING) state_ = DEAD;
 
     // When to stop advancing
@@ -137,8 +146,8 @@ public:
 
     AdvanceGold();
 
-    const int score_rows = scores.dimension(0);
-    const int num_actions = scores.dimension(1);
+    const int score_rows = scores.row();
+    const int num_actions = scores.col();
 
     // Advance beam.
     AgendaType previous_slots;
@@ -148,7 +157,7 @@ public:
     int slot = 0;
     for (AgendaItem &item : previous_slots) {
       {
-        ParseState *current = item.second->state.get();
+        ParserState *current = item.second->state.get();
         VLOG(2) << "Slot: " << slot;
         VLOG(2) << "Parser state: " << current->ToString();
         VLOG(2) << "Parser state cumulative score:  " << item.first.first << " "
@@ -176,10 +185,12 @@ public:
   }
 
   void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
-    for (const AgendaItem &item : slots_) {
+    for (AgendaItem &item : slots_) {
       vector<vector<SparseFeatures> > f =
         features_->ExtractSparseFeatures(*workspace_, *item.second->state);
-      for (size_t i = 0; i < f.size(); ++i) (*features)[i].push_back(f[i]);
+      for (size_t i = 0; i < f.size(); ++i) {
+        (*features)[i].push_back(f[i]);
+      }
     }
   }
 
@@ -259,7 +270,7 @@ private:
   //   - the item's new score is greater than the lowest score in the beam
   //     after the score has been incremented by given delta_score.
   // Inserted items have slot, delta_score and action appended to their history.
-  void MaybeInsertWithNewAction(const AgendaItem &item, const int slot,
+  void MaybeInsertWithNewAction(AgendaItem &item, const int slot,
                                 const double delta_score, const int action) {
     const double score = item.first.first + delta_score;
     const bool is_gold =
@@ -310,14 +321,15 @@ public:
   void Init(TaskContext *task_context) {
     // Create sentence batch
     sentence_batch_.reset(new SentenceBatch(BatchSize(),
-                                            options.corpus_name));
-    sentence_batch_.Init(task_context);
+                                            options_.corpus_name));
+    sentence_batch_->Init(task_context);
 
     // Create transition system.
-    transition_system_.reset(ParserTransitionSystem::Create(task_context->Get(
-      options_.arg_prefix+"_transition_system", "arc-standard")));
-    transition_system_.Setup(task_context);
-    transition_system_.Init(task_context);
+    // transition_system_.reset(ParserTransitionSystem::Create(task_context->Get(
+    //  options_.arg_prefix+"_transition_system", "arc-standard")));
+    transition_system_.reset(new ArcStandardTransitionSystem());
+    transition_system_->Setup(task_context);
+    transition_system_->Init(task_context);
 
     // Create label map.
     string label_map_path =
@@ -342,7 +354,7 @@ public:
       beams_[beam_id].label_map_ = label_map_;
       beams_[beam_id].features_ = &features_;
       beams_[beam_id].workspace_ = &workspaces_[beam_id];
-      beams_[beam_id].workspace_registry = &workspace_registry_;
+      beams_[beam_id].workspace_registry_ = &workspace_registry_;
     }
   }
 
@@ -367,9 +379,11 @@ public:
     UpdateOffsets();
   }
 
-  void AdvanceBeam(const int beam_id,
-                   const TTypes<float>::ConstMatrix &scores) {
+  void AdvanceBeam(const int beam_id, ScoreMatrixType &scores) {
     const int offset = beam_offsets_.back()[beam_id];
+    // slice scores.
+
+    beams_[beam_id].Advance(scores);
   }
 
   void UpdateOffsets() {
@@ -386,7 +400,7 @@ public:
     step_offsets_.push_back(step_offsets_.back() + output_size);
   }
 
-  tensorflow::Status PopulateFeatureOutputs(OpKernelContext *context) {
+  bool PopulateFeatureOutputs(TaskContext *context) {
     const int feature_size = FeatureSize();
     vector<vector<vector<SparseFeatures> > > features(feature_size);
     for (int beam_id = 0; beam_id < BatchSize(); ++beam_id) {
@@ -394,6 +408,14 @@ public:
         beams_[beam_id].PopulateFeatureOutputs(&features);
       }
     }
+    /*for (size_t i = 0; i < features.size(); ++i) {
+      for (size_t j = 0; j < features[i].size(); ++j) {
+        for (size_t k = 0; k < features[i][j].size(); ++k) {
+          LOG(INFO) << features[i][j][k].description_[0];
+        }
+      }
+    }*/
+    return true;
   }
   
   // Returns the offset (i.e. row number) of a particular beam at a
@@ -457,103 +479,120 @@ private:
 class BeamParseReader {
 public:
   explicit BeamParseReader(TaskContext *context) {
-    string file_path;
-    int feature_size;
     BatchStateOptions options;
-    TaskContext task_context;
+    options.max_beam_size = 25;
+    options.batch_size = 32;
+    options.corpus_name = "training-corpus";
+    options.arg_prefix = "beam_parser";
     
     // Create batch state.
     batch_state_.reset(new BatchState(options));
-    batch_state_.Init(&task_context);
+    batch_state_->Init(context);
 
     // Check number of feature groups matches the task context.
     const int required_size = batch_state_->FeatureSize();
   }
 
-  void Compute(TaskContext *context) override {
+  void Compute(TaskContext *context) {
     // Write features.
     batch_state_->ResetBeams();
     batch_state_->ResetOffsets();
     batch_state_->PopulateFeatureOutputs(context);
 
     // Forward the beam state vector.
-    Tensor *output;
     const int feature_size = batch_state_->FeatureSize();
-    output->scalar<int64_t>()() = reinterpret_cast<int64_t>(batch_state_.get());
+    VLOG(2) << "feature_size [" << feature_size << "]";
 
     // Ouput number of epochs.
-    output->scalar<int32_t>()() = batch_state_->Epoch();
+    VLOG(2) << "epoch:" << batch_state_->Epoch();
   }
 
-private:
-  mutex mu_;
-
+public:
   std::unique_ptr<BatchState> batch_state_;
 };
 
 // Updates the beam based on incoming scores and outputs new feature vectors
 // based on the updated beam.
-class BeamParser : public OpKernel {
+class BeamParser {
 public:
-  explicit BeamParser(OpKernelConstruction *context)
-    : OpKernel(context) {
-    int feature_size;
-    OP_REQUIRES_OK(context, context->GetAttr("feature_size", &feature_size));
-
-    // Set expected signature.
-    std::vector<DataType> output_types(feature_size, DT_STRING);
-    output_types.push_back(DT_INT64);
-    output_types.push_back(DT_BOOL);
-    OP_REQUIRES_OK(context,
-                   context->MatchSignature({DT_INT64, DT_FLOAT}, output_types));
+  explicit BeamParser(TaskContext *context) {
+    string symbol = "mxnet/greedy-symbol.json";
+    string params = "mxnet/greedy-0009.params";
+    int max_batch_size_ = 32;
+    global_model_ = new Model(max_batch_size_);
+    global_model_->Load(symbol, params);
+    global_model_->Init(context);
+    parser_reader_.reset(new BeamParseReader(context));
   }
 
-  void Compute(OpKernelContext *context) override {
-    BatchState *batch_state =
-      reinterpret_cast<BatchState *>(context->input(0).scalar<int64>());
-    const TTypes<float>::ConstMatrix scores = context->input(1).matrix<float>();
+  void Compute(TaskContext *context) {
+    // Read Sentence & Populate Features.
+    parser_reader_->Compute(context);
+
+    // Extract BeamState Features.
+    BatchState *batch_state = parser_reader_->batch_state_.get();
+
+    // Compute BeamState Score via GlobalNormalization Model.
+    ComputeMatrix();
 
     // In AdvanceBeam we use beam_offsets_[beam_id] to determine the slice of
     // scores that should be used for advancing, but beam_offsets_[beam_id]
     // exists for beams that have a sentence loaded.
     const int batch_size = batch_state->BatchSize();
     for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
-      batch_state->AdvanceBeam(beam_id, scores);
+      batch_state->AdvanceBeam(beam_id, scores_matrix_);
     }
     batch_state->UpdateOffsets();
 
     // Forward the beam state unmodified.
-    Tensor *output;
     const int feature_size = batch_state->FeatureSize();
-    OP_REQUIRES_OK(context, context->allocate_output(feature_size,
-                                                     TensorShape({}), &output));
-    output->scalar<int64>()() = context->input(0).scalar<int64>()();
 
     // Output the new features of all the slots in all the beams.
-    OP_REQUIRES_OK(context, batch_state->PopulateFeatureOutputs(context));
+    batch_state->PopulateFeatureOutputs(context);
 
     // Output whether the beams are alive.
-    OP_REQUIRES_OK(
-        context, context->allocate_output(feature_size + 1,
-                                          TensorShape({batch_size}), &output));
     for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
-      output->vec<bool>()(beam_id) = batch_state->Beam(beam_id).IsAlive();
+      batch_state->Beam(beam_id).IsAlive();
     }
   }
+  
+  void ComputeMatrix() {
+    vector<string> feature_names = {"feature_0_data", "feature_1_data", "feature_2_data"};
+    vector<int> feature_sizes = {20, 20, 12};
+    // padding.
+    /*int sentence_size = this->batch_size();
+    int max_batch_size = this->max_batch_size();
+    for (int pad_size = sentence_size; pad_size < max_batch_size; ++pad_size) {
+      for (size_t k = 0; k < feature_sizes.size(); ++k) {
+        for (int fsize = 0; fsize < feature_sizes[k]; ++fsize) {
+          feature_outputs_[k].push_back(0);
+        }
+      }
+    }*/
+    
+    global_model_->DoPredict(feature_outputs_, feature_names, feature_sizes, &scores_matrix_);
+  }
+
+private:
+  std::unique_ptr<BeamParseReader> parser_reader_;
+  Model *global_model_;
+  vector<vector<float>> feature_outputs_;
+  ScoreMatrixType scores_matrix_;
 };
 
 
 // Extracts the paths for the elements of the current beams and returns
 // indices into a scoring matrix that is assumed to have been
 // constructed along with the beam search.
-class BeamParserOutput : public OpKernel {
+class BeamParserOutput {
 public:
-  explicit BeamParserOutput(OpKernelConstruction *context) : OpKernel(context) {
+  explicit BeamParserOutput(TaskContext *context) {
   }
 
-  void Compute(OpKernelContext *context) override {
-    BatchState *batch_state =
-      reinterpret_cast<BatchState *>(context->input(0).scalar<int64>()());
+  void Compute(TaskContext *context) {
+    BatchState *batch_state = nullptr;
+    int batch_size = 32;  // Get value from context.
+    int num_actions = 10;
 
     // Vectors for output.
     //
@@ -616,17 +655,16 @@ public:
 };
 
 // Computes eval metrics for the best path in the input beams.
-class BeamEvalOutput : public OpKernel {
+class BeamEvalOutput {
 public:
-  explicit BeamEvalOutput(OpKernelConstruction *context) : OpKernel(context) {
+  explicit BeamEvalOutput(TaskContext *context) {
   }
 
-  void Compute(OpKernelContext *context) override {
+  void Compute(TaskContext *context) {
     int num_tokens = 0;
     int num_correct = 0;
     int all_final = 0;
-    BatchState *batch_state =
-      reinterpret_cast<BatchState *>(context->input(0).scalar<int64_t>()());
+    BatchState *batch_state = nullptr;
     const int batch_size = batch_state->BatchSize();
     vector<Sentence> documents;
     for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
@@ -634,7 +672,7 @@ public:
           batch_state->Beam(beam_id).AllFinal()) {
         ++all_final;
         const auto &item = *batch_state->Beam(beam_id).slots_.rbegin();
-        ComputeTokenAccuracy();
+        // ComputeTokenAccuracy();
         documents.push_back(item.second->state->sentence());
         item.second->state->AddParseToDocument(&documents.back());
       }

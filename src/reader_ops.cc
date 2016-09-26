@@ -166,7 +166,7 @@ private:
     WorkspaceRegistry workspace_registry_;
 
 public:
-    vector<vector<float> > feature_outputs_;
+    vector<vector<float>> feature_outputs_;
 };
 
 class GoldParseReader : public ParsingReader {

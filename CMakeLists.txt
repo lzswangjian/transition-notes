@@ -31,7 +31,8 @@ set(SOURCE_FILES src/io/text_formats.h src/utils/utils.h src/utils/utils.cc
         src/model/model_predict.cc
         src/sentence_batch.h src/sentence_batch.cc
         src/reader_ops.cc
-        src/cli_main.cc)
+        src/beam_reader_ops.cc
+        src/beam_parser_test.cc)
 
 LINK_DIRECTORIES(lib)
 add_executable(SyntaxNet ${SOURCE_FILES})

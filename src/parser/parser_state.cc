@@ -31,6 +31,19 @@ ParserState::~ParserState() { delete transition_state_; }
 
 ParserState *ParserState::Clone() const {
     ParserState *new_state = new ParserState();
+    new_state->sentence_ = sentence_;
+    new_state->num_tokens_ = num_tokens_;
+    new_state->alternative_ = alternative_;
+    new_state->transition_state_ = transition_state_ == nullptr ? nullptr :
+        transition_state_->Clone();
+    new_state->label_map_ = label_map_;
+    new_state->root_label_ = root_label_;
+    new_state->next_ = next_;
+    new_state->stack_.assign(stack_.begin(), stack_.end());
+    new_state->head_.assign(head_.begin(), head_.end());
+    new_state->label_.assign(label_.begin(), label_.end());
+    new_state->score_ = score_;
+    new_state->is_gold_ = is_gold_;
     return new_state;
 }
 

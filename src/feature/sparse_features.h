@@ -29,6 +29,5 @@ public:
     void add_description(const string &description) {
         description_.push_back(description);
     }
-
 };
 #endif //SYNTAXNET_SPARSE_FEATURES_H

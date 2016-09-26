@@ -8,7 +8,7 @@
  */
 class SentenceBatch {
   public:
-    SentenceBatch(int batch_size, string &input_name)
+    SentenceBatch(int batch_size, const string &input_name)
       : batch_size_(batch_size),
       input_name_(input_name),
       sentences_(batch_size) {}
