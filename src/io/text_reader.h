@@ -23,7 +23,7 @@ public:
 private:
     string file_name_;
     int sentence_count_ = 0;
-    ifstream *file_;
+    ifstream *file_ = nullptr;
     std::unique_ptr<DocumentFormat> format_;
 };
 

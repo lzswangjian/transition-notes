@@ -140,6 +140,7 @@ public:
   // the beam.
   void Advance(ScoreMatrixType &scores) {
     if (state_ == DYING) state_ = DEAD;
+    LOG(INFO) << "STATE: " << state_;
 
     // When to stop advancing
     if (!IsAlive() || gold_ == nullptr) return;
@@ -149,10 +150,19 @@ public:
     const int score_rows = scores.row();
     const int num_actions = scores.col();
 
+    // Debug.
+    /*for (int i = 0; i < score_rows; i++) {
+      for (int j = 0; j < num_actions; j++) {
+        cout << scores(i, j) << " ";
+      }
+      cout << endl;
+    }*/
+
     // Advance beam.
     AgendaType previous_slots;
     previous_slots.swap(slots_);
     CHECK_EQ(state_, ALIVE);
+    cout << "previous state size:" << previous_slots.size() << endl;
 
     int slot = 0;
     for (AgendaItem &item : previous_slots) {
@@ -182,6 +192,7 @@ public:
       ++slot;
     }
     UpdateAllFinal();
+    // LOG(INFO) << "slots size:" << slots_.size();
   }
 
   void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
@@ -382,6 +393,7 @@ public:
   void AdvanceBeam(const int beam_id, ScoreMatrixType &scores) {
     const int offset = beam_offsets_.back()[beam_id];
     // slice scores.
+    LOG(INFO) << beam_id << ":" << scores.row();
 
     beams_[beam_id].Advance(scores);
   }
@@ -400,7 +412,8 @@ public:
     step_offsets_.push_back(step_offsets_.back() + output_size);
   }
 
-  bool PopulateFeatureOutputs(TaskContext *context) {
+  bool PopulateFeatureOutputs(TaskContext *context,
+                              vector<vector<float>> &feature_outputs) {
     const int feature_size = FeatureSize();
     vector<vector<vector<SparseFeatures> > > features(feature_size);
     for (int beam_id = 0; beam_id < BatchSize(); ++beam_id) {
@@ -408,13 +421,16 @@ public:
         beams_[beam_id].PopulateFeatureOutputs(&features);
       }
     }
-    /*for (size_t i = 0; i < features.size(); ++i) {
+
+    feature_outputs.resize(feature_size);
+    for (size_t i = 0; i < features.size(); ++i) {
       for (size_t j = 0; j < features[i].size(); ++j) {
         for (size_t k = 0; k < features[i][j].size(); ++k) {
-          LOG(INFO) << features[i][j][k].description_[0];
+          feature_outputs[i].push_back(features[i][j][k].id_[0]);
         }
       }
-    }*/
+    }
+    LOG(INFO) << "state size:" << features[0].size();
     return true;
   }
   
@@ -480,8 +496,8 @@ class BeamParseReader {
 public:
   explicit BeamParseReader(TaskContext *context) {
     BatchStateOptions options;
-    options.max_beam_size = 25;
-    options.batch_size = 32;
+    options.max_beam_size = 4;
+    options.batch_size = 1;
     options.corpus_name = "training-corpus";
     options.arg_prefix = "beam_parser";
     
@@ -493,18 +509,19 @@ public:
     const int required_size = batch_state_->FeatureSize();
   }
 
-  void Compute(TaskContext *context) {
+  void Compute(TaskContext *context,
+               vector<vector<float>> &feature_outputs,
+               int &epoch) {
     // Write features.
     batch_state_->ResetBeams();
     batch_state_->ResetOffsets();
-    batch_state_->PopulateFeatureOutputs(context);
+    batch_state_->PopulateFeatureOutputs(context, feature_outputs);
 
     // Forward the beam state vector.
     const int feature_size = batch_state_->FeatureSize();
-    VLOG(2) << "feature_size [" << feature_size << "]";
 
     // Ouput number of epochs.
-    VLOG(2) << "epoch:" << batch_state_->Epoch();
+    epoch = batch_state_->Epoch();
   }
 
 public:
@@ -518,8 +535,10 @@ public:
   explicit BeamParser(TaskContext *context) {
     string symbol = "mxnet/greedy-symbol.json";
     string params = "mxnet/greedy-0009.params";
-    int max_batch_size_ = 32;
-    global_model_ = new Model(max_batch_size_);
+    max_beam_size_ = 4;
+    max_batch_size_ = 1;
+    model_batch_size_ = max_batch_size_ * max_beam_size_;
+    global_model_ = new Model(model_batch_size_);
     global_model_->Load(symbol, params);
     global_model_->Init(context);
     parser_reader_.reset(new BeamParseReader(context));
@@ -527,48 +546,57 @@ public:
 
   void Compute(TaskContext *context) {
     // Read Sentence & Populate Features.
-    parser_reader_->Compute(context);
+    parser_reader_->Compute(context, feature_outputs_, epoch_);
 
     // Extract BeamState Features.
     BatchState *batch_state = parser_reader_->batch_state_.get();
 
-    // Compute BeamState Score via GlobalNormalization Model.
-    ComputeMatrix();
+    bool any_alive = true;
+    int max_steps = 25;
+    int accumulate_steps = 0;
 
-    // In AdvanceBeam we use beam_offsets_[beam_id] to determine the slice of
-    // scores that should be used for advancing, but beam_offsets_[beam_id]
-    // exists for beams that have a sentence loaded.
-    const int batch_size = batch_state->BatchSize();
-    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
-      batch_state->AdvanceBeam(beam_id, scores_matrix_);
+    while (accumulate_steps < max_steps && any_alive) {
+      // Compute BeamState Score via GlobalNormalization Model.
+      ComputeMatrix();
+
+      // In AdvanceBeam we use beam_offsets_[beam_id] to determine the slice of
+      // scores that should be used for advancing, but beam_offsets_[beam_id]
+      // exists for beams that have a sentence loaded.
+      const int batch_size = batch_state->BatchSize();
+      for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+        batch_state->AdvanceBeam(beam_id, scores_matrix_);
+      }
+      batch_state->UpdateOffsets();
+
+      // Forward the beam state unmodified.
+      const int feature_size = batch_state->FeatureSize();
+
+      // Output the new features of all the slots in all the beams.
+      batch_state->PopulateFeatureOutputs(context, feature_outputs_);
+
+      // Output whether the beams are alive.
+      any_alive = true;
+      for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+        any_alive |= batch_state->Beam(beam_id).IsAlive();
+      }
+      accumulate_steps += 1;
     }
-    batch_state->UpdateOffsets();
-
-    // Forward the beam state unmodified.
-    const int feature_size = batch_state->FeatureSize();
-
-    // Output the new features of all the slots in all the beams.
-    batch_state->PopulateFeatureOutputs(context);
-
-    // Output whether the beams are alive.
-    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
-      batch_state->Beam(beam_id).IsAlive();
-    }
+    LOG(INFO) << "Accumulate Steps:" << accumulate_steps;
   }
   
   void ComputeMatrix() {
     vector<string> feature_names = {"feature_0_data", "feature_1_data", "feature_2_data"};
     vector<int> feature_sizes = {20, 20, 12};
+    int num_of_states = feature_outputs_[0].size() % feature_sizes[0];
+
     // padding.
-    /*int sentence_size = this->batch_size();
-    int max_batch_size = this->max_batch_size();
-    for (int pad_size = sentence_size; pad_size < max_batch_size; ++pad_size) {
+    for (int pad_size = num_of_states; pad_size < model_batch_size_; ++pad_size) {
       for (size_t k = 0; k < feature_sizes.size(); ++k) {
         for (int fsize = 0; fsize < feature_sizes[k]; ++fsize) {
           feature_outputs_[k].push_back(0);
         }
       }
-    }*/
+    }
     
     global_model_->DoPredict(feature_outputs_, feature_names, feature_sizes, &scores_matrix_);
   }
@@ -578,6 +606,10 @@ private:
   Model *global_model_;
   vector<vector<float>> feature_outputs_;
   ScoreMatrixType scores_matrix_;
+  int epoch_;
+  int max_beam_size_;
+  int max_batch_size_;
+  int model_batch_size_;
 };
 
 

@@ -12,7 +12,7 @@ int TestReaderOP(int argc, char *argv[]) {
     TaskInput *input = spec->add_input();
     input->set_name("training-corpus");
     TaskInput::Part *input_part = input->add_part();
-    input_part->set_file_pattern("test/test.conll.utf8");
+    input_part->set_file_pattern("test/dev.conll.utf8");
 
     TaskInput *label_map_input = spec->add_input();
     label_map_input->set_name("label-map");
@@ -42,7 +42,11 @@ int TestReaderOP(int argc, char *argv[]) {
     embedding_dims->set_value("64;32;32");
 
     BeamParser *parser = new BeamParser(context);
-    parser->Compute(context);
+    int i = 0;
+    while(i < 6) {
+      parser->Compute(context);
+      i++;
+    }
 
     delete parser;
 }
