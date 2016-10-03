@@ -3,7 +3,8 @@
 
 #include <fstream>
 #include <algorithm>
-#include "../dmlc-core/include/dmlc/logging.h"
+
+#include <dmlc/logging.h>
 
 using namespace std;
 
