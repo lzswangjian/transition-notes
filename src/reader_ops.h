@@ -1,3 +1,6 @@
+#ifndef READER_OPS_H_
+#define READER_OPS_H_
+
 #include <deque>
 #include "utils/utils.h"
 #include "sentence_batch.h"
@@ -119,7 +122,7 @@ protected:
     // action or a predicated action from decoding.
     virtual void PerformActions() = 0;
 
-    virtual void AddAdditionalOutputs() const = 0;
+    virtual void AddAdditionalOutputs() = 0;
 
     // Accessors.
     int max_batch_size() const { return max_batch_size_; }
@@ -167,6 +170,7 @@ private:
 
 public:
     vector<vector<float>> feature_outputs_;
+    vector<float> gold_actions_;
 };
 
 class GoldParseReader : public ParsingReader {
@@ -186,7 +190,14 @@ private:
     }
 
     // Adds the list of gold actions for each state as an additional output.
-    void AddAdditionalOutputs() const override {
+    void AddAdditionalOutputs() override {
+        gold_actions_.clear();
+        for (int i = 0; i < max_batch_size(); ++i) {
+            if (state(i) != nullptr) {
+                int gold_action = transition_system().GetNextGoldAction(*state(i));
+                gold_actions_.push_back(gold_action);
+            }
+        }
     }
 };
 
@@ -276,7 +287,7 @@ public:
         }
     }
 
-    void AddAdditionalOutputs() const override {
+    void AddAdditionalOutputs() override {
     }
 
     void OutputCoNLLResult() {
@@ -307,3 +318,5 @@ public:
 
     void Compute()  {}
 };
+
+#endif /* end of include guard: READER_OPS_H */

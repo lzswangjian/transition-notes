@@ -123,59 +123,32 @@ SyntaxNet/fast:
 	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/build
 .PHONY : SyntaxNet/fast
 
-src/beam_parser_test.o: src/beam_parser_test.cc.o
+src/cli_main.o: src/cli_main.cc.o
 
-.PHONY : src/beam_parser_test.o
-
-# target to build an object file
-src/beam_parser_test.cc.o:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.o
-.PHONY : src/beam_parser_test.cc.o
-
-src/beam_parser_test.i: src/beam_parser_test.cc.i
-
-.PHONY : src/beam_parser_test.i
-
-# target to preprocess a source file
-src/beam_parser_test.cc.i:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.i
-.PHONY : src/beam_parser_test.cc.i
-
-src/beam_parser_test.s: src/beam_parser_test.cc.s
-
-.PHONY : src/beam_parser_test.s
-
-# target to generate assembly for a file
-src/beam_parser_test.cc.s:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_parser_test.cc.s
-.PHONY : src/beam_parser_test.cc.s
-
-src/beam_reader_ops.o: src/beam_reader_ops.cc.o
-
-.PHONY : src/beam_reader_ops.o
+.PHONY : src/cli_main.o
 
 # target to build an object file
-src/beam_reader_ops.cc.o:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.o
-.PHONY : src/beam_reader_ops.cc.o
+src/cli_main.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.o
+.PHONY : src/cli_main.cc.o
 
-src/beam_reader_ops.i: src/beam_reader_ops.cc.i
+src/cli_main.i: src/cli_main.cc.i
 
-.PHONY : src/beam_reader_ops.i
+.PHONY : src/cli_main.i
 
 # target to preprocess a source file
-src/beam_reader_ops.cc.i:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.i
-.PHONY : src/beam_reader_ops.cc.i
+src/cli_main.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.i
+.PHONY : src/cli_main.cc.i
 
-src/beam_reader_ops.s: src/beam_reader_ops.cc.s
+src/cli_main.s: src/cli_main.cc.s
 
-.PHONY : src/beam_reader_ops.s
+.PHONY : src/cli_main.s
 
 # target to generate assembly for a file
-src/beam_reader_ops.cc.s:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/beam_reader_ops.cc.s
-.PHONY : src/beam_reader_ops.cc.s
+src/cli_main.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/cli_main.cc.s
+.PHONY : src/cli_main.cc.s
 
 src/feature/embedding_feature_extractor.o: src/feature/embedding_feature_extractor.cc.o
 
@@ -447,32 +420,221 @@ src/lexicon/term_frequency_map.cc.s:
 	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/lexicon/term_frequency_map.cc.s
 .PHONY : src/lexicon/term_frequency_map.cc.s
 
-src/model/model_predict.o: src/model/model_predict.cc.o
+src/model/greedy_parser.o: src/model/greedy_parser.cc.o
 
-.PHONY : src/model/model_predict.o
+.PHONY : src/model/greedy_parser.o
 
 # target to build an object file
-src/model/model_predict.cc.o:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/model_predict.cc.o
-.PHONY : src/model/model_predict.cc.o
+src/model/greedy_parser.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/greedy_parser.cc.o
+.PHONY : src/model/greedy_parser.cc.o
 
-src/model/model_predict.i: src/model/model_predict.cc.i
+src/model/greedy_parser.i: src/model/greedy_parser.cc.i
 
-.PHONY : src/model/model_predict.i
+.PHONY : src/model/greedy_parser.i
 
 # target to preprocess a source file
-src/model/model_predict.cc.i:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/model_predict.cc.i
-.PHONY : src/model/model_predict.cc.i
+src/model/greedy_parser.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/greedy_parser.cc.i
+.PHONY : src/model/greedy_parser.cc.i
 
-src/model/model_predict.s: src/model/model_predict.cc.s
+src/model/greedy_parser.s: src/model/greedy_parser.cc.s
 
-.PHONY : src/model/model_predict.s
+.PHONY : src/model/greedy_parser.s
 
 # target to generate assembly for a file
-src/model/model_predict.cc.s:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/model_predict.cc.s
-.PHONY : src/model/model_predict.cc.s
+src/model/greedy_parser.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/model/greedy_parser.cc.s
+.PHONY : src/model/greedy_parser.cc.s
+
+src/mxnet-cpp/executor.o: src/mxnet-cpp/executor.cc.o
+
+.PHONY : src/mxnet-cpp/executor.o
+
+# target to build an object file
+src/mxnet-cpp/executor.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/executor.cc.o
+.PHONY : src/mxnet-cpp/executor.cc.o
+
+src/mxnet-cpp/executor.i: src/mxnet-cpp/executor.cc.i
+
+.PHONY : src/mxnet-cpp/executor.i
+
+# target to preprocess a source file
+src/mxnet-cpp/executor.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/executor.cc.i
+.PHONY : src/mxnet-cpp/executor.cc.i
+
+src/mxnet-cpp/executor.s: src/mxnet-cpp/executor.cc.s
+
+.PHONY : src/mxnet-cpp/executor.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/executor.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/executor.cc.s
+.PHONY : src/mxnet-cpp/executor.cc.s
+
+src/mxnet-cpp/io.o: src/mxnet-cpp/io.cc.o
+
+.PHONY : src/mxnet-cpp/io.o
+
+# target to build an object file
+src/mxnet-cpp/io.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/io.cc.o
+.PHONY : src/mxnet-cpp/io.cc.o
+
+src/mxnet-cpp/io.i: src/mxnet-cpp/io.cc.i
+
+.PHONY : src/mxnet-cpp/io.i
+
+# target to preprocess a source file
+src/mxnet-cpp/io.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/io.cc.i
+.PHONY : src/mxnet-cpp/io.cc.i
+
+src/mxnet-cpp/io.s: src/mxnet-cpp/io.cc.s
+
+.PHONY : src/mxnet-cpp/io.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/io.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/io.cc.s
+.PHONY : src/mxnet-cpp/io.cc.s
+
+src/mxnet-cpp/kvstore.o: src/mxnet-cpp/kvstore.cc.o
+
+.PHONY : src/mxnet-cpp/kvstore.o
+
+# target to build an object file
+src/mxnet-cpp/kvstore.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/kvstore.cc.o
+.PHONY : src/mxnet-cpp/kvstore.cc.o
+
+src/mxnet-cpp/kvstore.i: src/mxnet-cpp/kvstore.cc.i
+
+.PHONY : src/mxnet-cpp/kvstore.i
+
+# target to preprocess a source file
+src/mxnet-cpp/kvstore.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/kvstore.cc.i
+.PHONY : src/mxnet-cpp/kvstore.cc.i
+
+src/mxnet-cpp/kvstore.s: src/mxnet-cpp/kvstore.cc.s
+
+.PHONY : src/mxnet-cpp/kvstore.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/kvstore.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/kvstore.cc.s
+.PHONY : src/mxnet-cpp/kvstore.cc.s
+
+src/mxnet-cpp/ndarray.o: src/mxnet-cpp/ndarray.cc.o
+
+.PHONY : src/mxnet-cpp/ndarray.o
+
+# target to build an object file
+src/mxnet-cpp/ndarray.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/ndarray.cc.o
+.PHONY : src/mxnet-cpp/ndarray.cc.o
+
+src/mxnet-cpp/ndarray.i: src/mxnet-cpp/ndarray.cc.i
+
+.PHONY : src/mxnet-cpp/ndarray.i
+
+# target to preprocess a source file
+src/mxnet-cpp/ndarray.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/ndarray.cc.i
+.PHONY : src/mxnet-cpp/ndarray.cc.i
+
+src/mxnet-cpp/ndarray.s: src/mxnet-cpp/ndarray.cc.s
+
+.PHONY : src/mxnet-cpp/ndarray.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/ndarray.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/ndarray.cc.s
+.PHONY : src/mxnet-cpp/ndarray.cc.s
+
+src/mxnet-cpp/operator.o: src/mxnet-cpp/operator.cc.o
+
+.PHONY : src/mxnet-cpp/operator.o
+
+# target to build an object file
+src/mxnet-cpp/operator.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/operator.cc.o
+.PHONY : src/mxnet-cpp/operator.cc.o
+
+src/mxnet-cpp/operator.i: src/mxnet-cpp/operator.cc.i
+
+.PHONY : src/mxnet-cpp/operator.i
+
+# target to preprocess a source file
+src/mxnet-cpp/operator.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/operator.cc.i
+.PHONY : src/mxnet-cpp/operator.cc.i
+
+src/mxnet-cpp/operator.s: src/mxnet-cpp/operator.cc.s
+
+.PHONY : src/mxnet-cpp/operator.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/operator.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/operator.cc.s
+.PHONY : src/mxnet-cpp/operator.cc.s
+
+src/mxnet-cpp/optimizer.o: src/mxnet-cpp/optimizer.cc.o
+
+.PHONY : src/mxnet-cpp/optimizer.o
+
+# target to build an object file
+src/mxnet-cpp/optimizer.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/optimizer.cc.o
+.PHONY : src/mxnet-cpp/optimizer.cc.o
+
+src/mxnet-cpp/optimizer.i: src/mxnet-cpp/optimizer.cc.i
+
+.PHONY : src/mxnet-cpp/optimizer.i
+
+# target to preprocess a source file
+src/mxnet-cpp/optimizer.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/optimizer.cc.i
+.PHONY : src/mxnet-cpp/optimizer.cc.i
+
+src/mxnet-cpp/optimizer.s: src/mxnet-cpp/optimizer.cc.s
+
+.PHONY : src/mxnet-cpp/optimizer.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/optimizer.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/optimizer.cc.s
+.PHONY : src/mxnet-cpp/optimizer.cc.s
+
+src/mxnet-cpp/symbol.o: src/mxnet-cpp/symbol.cc.o
+
+.PHONY : src/mxnet-cpp/symbol.o
+
+# target to build an object file
+src/mxnet-cpp/symbol.cc.o:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/symbol.cc.o
+.PHONY : src/mxnet-cpp/symbol.cc.o
+
+src/mxnet-cpp/symbol.i: src/mxnet-cpp/symbol.cc.i
+
+.PHONY : src/mxnet-cpp/symbol.i
+
+# target to preprocess a source file
+src/mxnet-cpp/symbol.cc.i:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/symbol.cc.i
+.PHONY : src/mxnet-cpp/symbol.cc.i
+
+src/mxnet-cpp/symbol.s: src/mxnet-cpp/symbol.cc.s
+
+.PHONY : src/mxnet-cpp/symbol.s
+
+# target to generate assembly for a file
+src/mxnet-cpp/symbol.cc.s:
+	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/mxnet-cpp/symbol.cc.s
+.PHONY : src/mxnet-cpp/symbol.cc.s
 
 src/parser/arc_standard_transitions.o: src/parser/arc_standard_transitions.cc.o
 
@@ -581,33 +743,6 @@ src/parser/tagger_transitions.s: src/parser/tagger_transitions.cc.s
 src/parser/tagger_transitions.cc.s:
 	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/parser/tagger_transitions.cc.s
 .PHONY : src/parser/tagger_transitions.cc.s
-
-src/reader_ops.o: src/reader_ops.cc.o
-
-.PHONY : src/reader_ops.o
-
-# target to build an object file
-src/reader_ops.cc.o:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/reader_ops.cc.o
-.PHONY : src/reader_ops.cc.o
-
-src/reader_ops.i: src/reader_ops.cc.i
-
-.PHONY : src/reader_ops.i
-
-# target to preprocess a source file
-src/reader_ops.cc.i:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/reader_ops.cc.i
-.PHONY : src/reader_ops.cc.i
-
-src/reader_ops.s: src/reader_ops.cc.s
-
-.PHONY : src/reader_ops.s
-
-# target to generate assembly for a file
-src/reader_ops.cc.s:
-	$(MAKE) -f CMakeFiles/SyntaxNet.dir/build.make CMakeFiles/SyntaxNet.dir/src/reader_ops.cc.s
-.PHONY : src/reader_ops.cc.s
 
 src/sentence_batch.o: src/sentence_batch.cc.o
 
@@ -807,12 +942,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... SyntaxNet"
-	@echo "... src/beam_parser_test.o"
-	@echo "... src/beam_parser_test.i"
-	@echo "... src/beam_parser_test.s"
-	@echo "... src/beam_reader_ops.o"
-	@echo "... src/beam_reader_ops.i"
-	@echo "... src/beam_reader_ops.s"
+	@echo "... src/cli_main.o"
+	@echo "... src/cli_main.i"
+	@echo "... src/cli_main.s"
 	@echo "... src/feature/embedding_feature_extractor.o"
 	@echo "... src/feature/embedding_feature_extractor.i"
 	@echo "... src/feature/embedding_feature_extractor.s"
@@ -843,9 +975,30 @@ help:
 	@echo "... src/lexicon/term_frequency_map.o"
 	@echo "... src/lexicon/term_frequency_map.i"
 	@echo "... src/lexicon/term_frequency_map.s"
-	@echo "... src/model/model_predict.o"
-	@echo "... src/model/model_predict.i"
-	@echo "... src/model/model_predict.s"
+	@echo "... src/model/greedy_parser.o"
+	@echo "... src/model/greedy_parser.i"
+	@echo "... src/model/greedy_parser.s"
+	@echo "... src/mxnet-cpp/executor.o"
+	@echo "... src/mxnet-cpp/executor.i"
+	@echo "... src/mxnet-cpp/executor.s"
+	@echo "... src/mxnet-cpp/io.o"
+	@echo "... src/mxnet-cpp/io.i"
+	@echo "... src/mxnet-cpp/io.s"
+	@echo "... src/mxnet-cpp/kvstore.o"
+	@echo "... src/mxnet-cpp/kvstore.i"
+	@echo "... src/mxnet-cpp/kvstore.s"
+	@echo "... src/mxnet-cpp/ndarray.o"
+	@echo "... src/mxnet-cpp/ndarray.i"
+	@echo "... src/mxnet-cpp/ndarray.s"
+	@echo "... src/mxnet-cpp/operator.o"
+	@echo "... src/mxnet-cpp/operator.i"
+	@echo "... src/mxnet-cpp/operator.s"
+	@echo "... src/mxnet-cpp/optimizer.o"
+	@echo "... src/mxnet-cpp/optimizer.i"
+	@echo "... src/mxnet-cpp/optimizer.s"
+	@echo "... src/mxnet-cpp/symbol.o"
+	@echo "... src/mxnet-cpp/symbol.i"
+	@echo "... src/mxnet-cpp/symbol.s"
 	@echo "... src/parser/arc_standard_transitions.o"
 	@echo "... src/parser/arc_standard_transitions.i"
 	@echo "... src/parser/arc_standard_transitions.s"
@@ -858,9 +1011,6 @@ help:
 	@echo "... src/parser/tagger_transitions.o"
 	@echo "... src/parser/tagger_transitions.i"
 	@echo "... src/parser/tagger_transitions.s"
-	@echo "... src/reader_ops.o"
-	@echo "... src/reader_ops.i"
-	@echo "... src/reader_ops.s"
 	@echo "... src/sentence_batch.o"
 	@echo "... src/sentence_batch.i"
 	@echo "... src/sentence_batch.s"

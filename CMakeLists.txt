@@ -28,11 +28,18 @@ set(SOURCE_FILES src/io/text_formats.h src/utils/utils.h src/utils/utils.cc
         src/utils/shared_store.h src/utils/shared_store.cc
         src/io/text_reader.h src/io/text_reader.cc
         src/io/document_format.h src/io/document_format.cc
-        src/model/model_predict.cc
         src/sentence_batch.h src/sentence_batch.cc
-        src/reader_ops.cc
-        src/beam_reader_ops.cc
-        src/beam_parser_test.cc)
+        src/reader_ops.h
+        src/mxnet-cpp/executor.cc
+        src/mxnet-cpp/io.cc
+        src/mxnet-cpp/kvstore.cc
+        src/mxnet-cpp/ndarray.cc
+        src/mxnet-cpp/operator.cc
+        src/mxnet-cpp/optimizer.cc
+        src/mxnet-cpp/symbol.cc
+        src/model/greedy_parser.cc
+        src/cli_main.cc
+        )
 
 LINK_DIRECTORIES(lib)
 add_executable(SyntaxNet ${SOURCE_FILES})

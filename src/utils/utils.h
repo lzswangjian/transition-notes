@@ -1,6 +1,5 @@
-
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef UTILS_H_
+#define UTILS_H_
 
 #include <functional>
 #include <string>

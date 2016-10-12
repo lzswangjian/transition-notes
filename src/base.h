@@ -3,6 +3,8 @@
 
 #include <fstream>
 #include <algorithm>
+#include <map>
+#include <set>
 
 #include <dmlc/logging.h>
 
