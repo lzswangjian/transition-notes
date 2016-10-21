@@ -7,28 +7,11 @@
 
 #include "../utils/utils.h"
 #include "../utils/task_context.h"
+#include "ScoreMatrix.h"
 
 /*!
  * \brief Score matrix for output
  */
-class Matrix {
-public:
-    float *data_ptr_;
-    int row_;
-    int col_;
-
-    float operator()(int row, int col) {
-        return data_ptr_[row * col_ + col];
-    }
-
-    float *mutable_data() { return data_ptr_; }
-
-    const float &data() const { return *data_ptr_; }
-
-    const int row() const { return row_; }
-
-    const int col() const { return col_; }
-};
 
 /*!
  * \brief BufferFile is used to load mxnet symbol json and parameters.
@@ -86,7 +69,7 @@ public:
     void DoPredict(vector<vector<float> > &feature_data,
                    vector<string> &feature_name,
                    vector<int> &feature_sizes,
-                   Matrix *result) {
+                   ScoreMatrix *result) {
 
         // Prepare input data.
         for (size_t i = 0; i < feature_name.size(); ++i) {

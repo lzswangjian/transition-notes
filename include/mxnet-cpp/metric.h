@@ -5,8 +5,8 @@
 * \author Zhang Chen
 */
 
-#ifndef MXNETCPP_METRIC_H
-#define MXNETCPP_METRIC_H
+#ifndef MXNET_CPP_METRIC_H_
+#define MXNET_CPP_METRIC_H_
 
 #include <cmath>
 #include <string>
@@ -39,7 +39,7 @@ class EvalMetric {
   static bool CheckLabelShapes(NDArray labels, NDArray preds,
                                Shape shape = Shape(0)) {
     // TODO(zhangchen-qinyinghua)
-    // inplement this
+    // implement this
     return true;
   }
 };
@@ -87,5 +87,5 @@ class LogLoss : public EvalMetric {
 }  // namespace cpp
 }  // namespace mxnet
 
-#endif /* end of include guard: MXNETCPP_METRIC_H */
+#endif /* end of include guard: MXNET_CPP_METRIC_H_ */
 

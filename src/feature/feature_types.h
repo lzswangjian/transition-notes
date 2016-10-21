@@ -23,7 +23,7 @@ typedef Predicate FeatureValue;
  * feature types.
  */
 class FeatureType {
-public:
+ public:
   // Initializes a feature type.
   explicit FeatureType(const string &name)
     : name_(name), base_(0) {}
@@ -43,7 +43,7 @@ public:
 
   void set_base(Predicate base) { base_ = base; }
 
-private:
+ private:
   // Feature type name.
   string name_;
 
@@ -64,40 +64,40 @@ private:
  */
 template<class Resource>
 class ResourceBasedFeatureType : public FeatureType {
-public:
-    ResourceBasedFeatureType(const string &name, const Resource *resource,
-                             const map<FeatureValue, string> &values)
-        : FeatureType(name), resource_(resource), values_(values) {
-        max_value_ = resource->NumValues() - 1;
-        for (const auto &pair : values) {
-          CHECK_GE(pair.first, resource->NumValues()) << "Invalid extra value: "
-            << pair.first << "," << pair.second;
-          max_value_ = pair.first > max_value_ ? pair.first : max_value_;
-        }
+ public:
+  ResourceBasedFeatureType(const string &name, const Resource *resource,
+                           const map<FeatureValue, string> &values)
+    : FeatureType(name), resource_(resource), values_(values) {
+    max_value_ = resource->NumValues() - 1;
+    for (const auto &pair : values) {
+      CHECK_GE(pair.first, resource->NumValues()) << "Invalid extra value: "
+                                                  << pair.first << "," << pair.second;
+      max_value_ = pair.first > max_value_ ? pair.first : max_value_;
     }
+  }
 
-    // Creates a new type with no sepcial values.
-    ResourceBasedFeatureType(const string &name, const Resource *resource)
-      : ResourceBasedFeatureType(name, resource, {}) {}
+  // Creates a new type with no sepcial values.
+  ResourceBasedFeatureType(const string &name, const Resource *resource)
+    : ResourceBasedFeatureType(name, resource, {}) {}
 
-    string GetFeatureValueName(FeatureValue value) const override {
-      if (values_.find(value) != values_.end()) {
-        return values_.find(value)->second;
-      }
-      if (value >= 0 && value < resource_->NumValues()) {
-        return resource_->GetFeatureValueName(value);
-      } else {
-        LOG(ERROR) << "Invaild feature value " << value << " for " << name();
-        return "<INVAILD>";
-      }
+  string GetFeatureValueName(FeatureValue value) const override {
+    if (values_.find(value) != values_.end()) {
+      return values_.find(value)->second;
     }
-
-    int64_t GetDomainSize() const override {
-        return max_value_ + 1;
+    if (value >= 0 && value < resource_->NumValues()) {
+      return resource_->GetFeatureValueName(value);
+    } else {
+      LOG(ERROR) << "Invaild feature value " << value << " for " << name();
+      return "<INVAILD>";
     }
+  }
 
-protected:
-    // Shared resource. Not owned.
+  int64_t GetDomainSize() const override {
+    return max_value_ + 1;
+  }
+
+ protected:
+  // Shared resource. Not owned.
   const Resource *resource_ = nullptr;
 
   FeatureValue max_value_;
@@ -115,13 +115,13 @@ protected:
  *
  */
 class EnumFeatureType : public FeatureType {
-public:
+ public:
   EnumFeatureType(const string &name,
                   const map<FeatureValue, string> &value_names)
     : FeatureType(name), value_names_(value_names) {
     for (const auto &pair : value_names) {
       CHECK_GE(pair.first, 0) << "Invalid feature value:"
-        << pair.first << ", " << pair.second;
+                              << pair.first << ", " << pair.second;
       domain_size_ = std::max(domain_size_, pair.first + 1);
     }
   }
@@ -141,11 +141,12 @@ public:
   // This is one greater than the largest value in the value_names map.
   FeatureValue GetDomainSize() const override { return domain_size_; }
 
-protected:
+ protected:
   // Maximum possible value this feature could take.
   FeatureValue domain_size_ = 0;
 
   // Names of feature values.
   map<FeatureValue, string> value_names_;
 };
+
 #endif

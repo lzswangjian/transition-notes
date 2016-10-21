@@ -54,6 +54,19 @@ namespace utils {
         container->clear();
     }
 
+    static bool StringStartWith(const std::string& name,
+                                const std::string& check_str) {
+        return (name.size() >= check_str.size() &&
+                name.substr(0, check_str.size()) == check_str);
+    }
+
+    static bool StringEndWith(const std::string& name,
+                              const std::string& check_str) {
+        return (name.size() >= check_str.size() &&
+                name.substr(name.size() - check_str.size(), check_str.size()) ==
+                check_str);
+    }
+
 }
 
 #endif /* UTILS_H */

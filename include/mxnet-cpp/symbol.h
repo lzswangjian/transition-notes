@@ -5,8 +5,8 @@
 * \author Chuntao Hong, Zhang Chen
 */
 
-#ifndef MXNETCPP_SYMBOL_H
-#define MXNETCPP_SYMBOL_H
+#ifndef MXNET_CPP_SYMBOL_H_
+#define MXNET_CPP_SYMBOL_H_
 
 #include <map>
 #include <string>
@@ -159,16 +159,16 @@ class Symbol {
   std::vector<std::string> ListAuxiliaryStates() const;
   /*!
   * \brief infer and construct all the arrays to bind to executor by providing
-  * some known arrays.
+  *     some known arrays.
   * \param context the context of all the infered arrays
   * \param arg_arrays infered input arguments arrays.
   * \param arad_arrays infered arrays to store the gradient output of the input
-  * arguments.
+  *     arguments.
   * \param aux_arrays infered arrays that is used as internal state in op.
   * \param args_map map of some given arguments arrays.
   * \param args_grad_store map of some gradient given store arrays.
   * \param args_req_type map of some given type of gradient saving. Can only be
-  * in {kNullOp, kAddTo, kWriteTo}.
+  *     in {kNullOp, kAddTo, kWriteTo}.
   * \param aux_map NDArray that stores the internal state in op
   */
   void InferExecutorArrays(
@@ -184,7 +184,7 @@ class Symbol {
           std::map<std::string, NDArray>()) const;
   /*!
   * \brief infer and construct all the input arguments arrays to bind to
-  * executor by providing some known arguments arrays.
+  *     executor by providing some known arguments arrays.
   * \param context the context of all the infered arrays.
   * \param args_map map of all the infered input arguments arrays.
   * \param known_args map of some given arguments arrays.
@@ -195,11 +195,11 @@ class Symbol {
   /*!
   * \brief Create an executor by bind symbol with context and arguments.
   *  If user do not want to compute the gradients of i-th argument,
-  *grad_req_type[i] can be kNullOp.
+  *  grad_req_type[i] can be kNullOp.
   *  The input arrays in the given maps should have the same name with the input
-  *symbol.
+  *  symbol.
   *  Only need some of the necessary arrays, and the other arrays can be infered
-  *automatically.
+  *  automatically.
   *
   * \param context the context of binding.
   * \param args_map the NDArray that stores the input arguments to the symbol.
@@ -254,4 +254,4 @@ Symbol operator*(mx_float lhs, const Symbol &rhs);
 Symbol operator/(mx_float lhs, const Symbol &rhs);
 }  // namespace cpp
 }  // namespace mxnet
-#endif  // MXNETCPP_SYMBOL_H
+#endif  // MXNET_CPP_SYMBOL_H_

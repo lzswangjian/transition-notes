@@ -1,6 +1,6 @@
 #include <iostream>
 #include "options.h"
-#include "beam_reader_ops.cc"
+#include "beam_reader_ops.h"
 
 using namespace std;
 

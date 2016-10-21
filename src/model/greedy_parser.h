@@ -1,9 +1,10 @@
 #ifndef GREEDY_PARSER_H_
 #define GREEDY_PARSER_H_
 
-#include <mxnet-cpp/MxNetCpp.h>
+#include <mxnet-cpp/mxnet_cpp.h>
 
 #include "../utils/utils.h"
+#include "score_matrix.h"
 
 using namespace std;
 using namespace mxnet::cpp;
@@ -18,47 +19,60 @@ using namespace mxnet::cpp;
 //  embedding_sizes: int list of same length as num_features of the 
 //                   desired embedding layer sizes.
 class GreedyParser {
-public:
-    GreedyParser(int num_actions,
-            vector<int> &num_features,
-            vector<int> &num_feature_ids,
-            vector<int> &embedding_sizes,
-            vector<int> &hidden_layer_sizes);
+ public:
+  GreedyParser(int batch_size);
 
-    Symbol AddEmbedding(mx_uint num_features,
-                mx_uint vocab_size,
-                mx_uint embedding_size,
-                const string &name);
+  GreedyParser(int num_actions,
+               vector<int> &num_features,
+               vector<int> &num_feature_ids,
+               vector<int> &embedding_sizes,
+               vector<int> &hidden_layer_sizes);
 
-  inline mx_uint GetEmbeddingSize() { 
-      mx_uint size = 0;
-      for (int i = 0; i < feature_size_; ++i) {
-          size += num_features_[i] * embedding_sizes_[i];
-      }
-      return size;
+  virtual ~GreedyParser();
+
+ public:
+
+  Symbol AddEmbedding(mx_uint num_features,
+                      mx_uint vocab_size,
+                      mx_uint embedding_size,
+                      const string &name);
+
+  inline mx_uint GetEmbeddingSize() {
+    mx_uint size = 0;
+    for (int i = 0; i < feature_size_; ++i) {
+      size += num_features_[i] * embedding_sizes_[i];
+    }
+    return size;
   }
 
   Symbol BuildNetwork();
 
-  inline bool IsParamerter(const string &name) {
-    return false;
+  inline bool IsParameter(const string &name) {
+    return utils::StringEndWith(name, "weight") || utils::StringEndWith(name, "bias");
   }
 
   void SetupModel();
 
-public:
-  void TrainModel(std::vector<std::vector<mx_float>> &features,
-                  std::vector<mx_float> &labels);
+ public:
+  void TrainOneBatch(std::vector<std::vector<mx_float>> &features,
+                     std::vector<mx_float> &labels);
 
+  ScoreMatrix Predict(std::vector<std::vector<mx_float>> &features);
 
-private:
+  void SaveModel(const std::string &symbol_path, const std::string &param_path);
+
+  void LoadModel(const std::string &symbol_path, const std::string &param_path);
+
+ protected:
   int num_actions_;
   vector<int> num_features_;
   vector<int> num_feature_ids_;
   vector<int> embedding_sizes_;
   vector<int> hidden_layer_sizes_;
   int feature_size_;
-  
+
+  int step_;
+
   mx_float learning_rate_;
   mx_float max_grad_norm_;
   string optimizer_;
@@ -70,8 +84,15 @@ private:
 
   Symbol network_symbol_;
   Optimizer *opt_;
-  std::map<std::string, NDArray> args_map_;
-  std::map<std::string, NDArray> aux_map_;
+
+  vector<string> arg_names_;
+
+  map<string, NDArray> args_map_;
+  map<string, OpReqType> grad_req_type_;
+  Executor *exec_;
+
+ public:
+  Accuracy acc;
 };
 
 #endif /* end of include guard: GREEDY_PARSER_H_ */

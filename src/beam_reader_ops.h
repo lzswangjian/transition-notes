@@ -12,9 +12,7 @@
 #include "feature/embedding_feature_extractor.h"
 #include "utils/shared_store.h"
 #include "parser/arc_standard_transitions.cc"
-#include "model/model_predict.cc"
-
-typedef Matrix ScoreMatrixType;
+#include "model/score_matrix.h"
 
 /*!
  * \brief ParserStateWithHistory
@@ -138,7 +136,7 @@ public:
   // to remain in the beam at all times, even if it scores low. This is to ensure that the gold
   // path can be used for training at the moment it would otherwise fall off (can be absent from)
   // the beam.
-  void Advance(ScoreMatrixType &scores) {
+  void Advance(ScoreMatrix &scores) {
     if (state_ == DYING) state_ = DEAD;
     LOG(INFO) << "STATE: " << state_;
 
@@ -390,7 +388,7 @@ public:
     UpdateOffsets();
   }
 
-  void AdvanceBeam(const int beam_id, ScoreMatrixType &scores) {
+  void AdvanceBeam(const int beam_id, ScoreMatrix &scores) {
     const int offset = beam_offsets_.back()[beam_id];
     // slice scores.
     LOG(INFO) << beam_id << ":" << scores.row();
@@ -568,7 +566,6 @@ public:
       }
       batch_state->UpdateOffsets();
 
-      // Forward the beam state unmodified.
       const int feature_size = batch_state->FeatureSize();
 
       // Output the new features of all the slots in all the beams.
@@ -605,7 +602,7 @@ private:
   std::unique_ptr<BeamParseReader> parser_reader_;
   Model *global_model_;
   vector<vector<float>> feature_outputs_;
-  ScoreMatrixType scores_matrix_;
+  ScoreMatrix scores_matrix_;
   int epoch_;
   int max_beam_size_;
   int max_batch_size_;

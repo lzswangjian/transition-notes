@@ -51,9 +51,9 @@ class Executor {
   * \brief Perform a Backward operation of the Operator.
   *  This must be called after Forward.
   *  After this operation, NDArrays specified by grad_in_args_store will be
-  *updated accordingly.
+  *  updated accordingly.
   *  User is allowed to pass in an empty Array if the head node is
-  *  loss function and head gradeitn is not needed.
+  *  loss function and head gradient is not needed.
   *
   * \param head_grads the gradient of head nodes to be backproped.
   */
