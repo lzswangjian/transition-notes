@@ -137,30 +137,28 @@ public:
   // path can be used for training at the moment it would otherwise fall off (can be absent from)
   // the beam.
   void Advance(ScoreMatrix &scores) {
-    if (state_ == DYING) state_ = DEAD;
-    LOG(INFO) << "STATE: " << state_;
+    if (state_ == ALIVE) {
+        LOG(INFO) << "STATE: [ALIVE]";
+    } else if (state_ == DYING) {
+        LOG(INFO) << "STATE: [DYING]";
+    } else {
+        LOG(INFO) << "STATE: [DEAD]";
+    }
 
+    if (state_ == DYING) state_ = DEAD;
     // When to stop advancing
     if (!IsAlive() || gold_ == nullptr) return;
 
     AdvanceGold();
+    LOG(INFO) << "Gold Action: [" << gold_action_ << "]";
 
     const int score_rows = scores.row();
     const int num_actions = scores.col();
-
-    // Debug.
-    /*for (int i = 0; i < score_rows; i++) {
-      for (int j = 0; j < num_actions; j++) {
-        cout << scores(i, j) << " ";
-      }
-      cout << endl;
-    }*/
 
     // Advance beam.
     AgendaType previous_slots;
     previous_slots.swap(slots_);
     CHECK_EQ(state_, ALIVE);
-    cout << "previous state size:" << previous_slots.size() << endl;
 
     int slot = 0;
     for (AgendaItem &item : previous_slots) {
@@ -190,7 +188,6 @@ public:
       ++slot;
     }
     UpdateAllFinal();
-    // LOG(INFO) << "slots size:" << slots_.size();
   }
 
   void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
@@ -236,6 +233,7 @@ public:
 private:
   // Creates a new ParserState if there's another sentence to be read.
   void AdvanceSentence() {
+    // LOG(INFO) << "Advance Sentence [" << beam_id_ << "]";
     gold_.reset();
     if (sentence_batch_->AdvanceSentence(beam_id_)) {
       gold_.reset(new ParserState(sentence_batch_->sentence(beam_id_),
@@ -391,9 +389,17 @@ public:
   void AdvanceBeam(const int beam_id, ScoreMatrix &scores) {
     const int offset = beam_offsets_.back()[beam_id];
     // slice scores.
-    LOG(INFO) << beam_id << ":" << scores.row();
-
-    beams_[beam_id].Advance(scores);
+    ScoreMatrix slice_score;
+    int slice_offset = BatchSize() * options_.max_beam_size;
+    int slice_size = slice_offset * NumActions();
+    slice_score.data_ptr_ = new float[slice_size];
+    for (int i = 0; i < slice_size; ++i) {
+      slice_score.data_ptr_[i] = scores.data_ptr_[slice_offset * beam_id + i];
+    }
+    slice_score.row_ = slice_offset;
+    slice_score.col_ = NumActions();
+    beams_[beam_id].Advance(slice_score);
+    delete[] slice_score.data_ptr_;
   }
 
   void UpdateOffsets() {
@@ -428,7 +434,6 @@ public:
         }
       }
     }
-    LOG(INFO) << "state size:" << features[0].size();
     return true;
   }
   
@@ -495,7 +500,7 @@ public:
   explicit BeamParseReader(TaskContext *context) {
     BatchStateOptions options;
     options.max_beam_size = 4;
-    options.batch_size = 1;
+    options.batch_size = 4;
     options.corpus_name = "training-corpus";
     options.arg_prefix = "beam_parser";
     
@@ -518,7 +523,7 @@ public:
     // Forward the beam state vector.
     const int feature_size = batch_state_->FeatureSize();
 
-    // Ouput number of epochs.
+    // Output number of epochs.
     epoch = batch_state_->Epoch();
   }
 
@@ -531,82 +536,30 @@ public:
 class BeamParser {
 public:
   explicit BeamParser(TaskContext *context) {
-    string symbol = "mxnet/greedy-symbol.json";
-    string params = "mxnet/greedy-0009.params";
-    max_beam_size_ = 4;
-    max_batch_size_ = 1;
-    model_batch_size_ = max_batch_size_ * max_beam_size_;
-    global_model_ = new Model(model_batch_size_);
-    global_model_->Load(symbol, params);
-    global_model_->Init(context);
-    parser_reader_.reset(new BeamParseReader(context));
   }
 
-  void Compute(TaskContext *context) {
-    // Read Sentence & Populate Features.
-    parser_reader_->Compute(context, feature_outputs_, epoch_);
+  void Compute(TaskContext *context, BatchState *batch_state, ScoreMatrix &scoreMatrix,
+               vector<vector<float>> &feature_outputs, bool &any_alive) {
+    // In AdvanceBeam we use beam_offsets_[beam_id] to determine the slice of
+    // scores that should be used for advancing, but beam_offsets_[beam_id]
+    // exists for beams that have a sentence loaded.
+    const int batch_size = batch_state->BatchSize();
+    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+        batch_state->AdvanceBeam(beam_id, scoreMatrix);
+    }
+    batch_state->UpdateOffsets();
 
-    // Extract BeamState Features.
-    BatchState *batch_state = parser_reader_->batch_state_.get();
+    const int feature_size = batch_state->FeatureSize();
 
-    bool any_alive = true;
-    int max_steps = 25;
-    int accumulate_steps = 0;
-
-    while (accumulate_steps < max_steps && any_alive) {
-      // Compute BeamState Score via GlobalNormalization Model.
-      ComputeMatrix();
-
-      // In AdvanceBeam we use beam_offsets_[beam_id] to determine the slice of
-      // scores that should be used for advancing, but beam_offsets_[beam_id]
-      // exists for beams that have a sentence loaded.
-      const int batch_size = batch_state->BatchSize();
-      for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
-        batch_state->AdvanceBeam(beam_id, scores_matrix_);
-      }
-      batch_state->UpdateOffsets();
-
-      const int feature_size = batch_state->FeatureSize();
-
-      // Output the new features of all the slots in all the beams.
-      batch_state->PopulateFeatureOutputs(context, feature_outputs_);
+    // Output the new features of all the slots in all the beams.
+    batch_state->PopulateFeatureOutputs(context, feature_outputs);
 
       // Output whether the beams are alive.
-      any_alive = true;
-      for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+    any_alive = false;
+    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
         any_alive |= batch_state->Beam(beam_id).IsAlive();
-      }
-      accumulate_steps += 1;
     }
-    LOG(INFO) << "Accumulate Steps:" << accumulate_steps;
   }
-  
-  void ComputeMatrix() {
-    vector<string> feature_names = {"feature_0_data", "feature_1_data", "feature_2_data"};
-    vector<int> feature_sizes = {20, 20, 12};
-    int num_of_states = feature_outputs_[0].size() % feature_sizes[0];
-
-    // padding.
-    for (int pad_size = num_of_states; pad_size < model_batch_size_; ++pad_size) {
-      for (size_t k = 0; k < feature_sizes.size(); ++k) {
-        for (int fsize = 0; fsize < feature_sizes[k]; ++fsize) {
-          feature_outputs_[k].push_back(0);
-        }
-      }
-    }
-    
-    global_model_->DoPredict(feature_outputs_, feature_names, feature_sizes, &scores_matrix_);
-  }
-
-private:
-  std::unique_ptr<BeamParseReader> parser_reader_;
-  Model *global_model_;
-  vector<vector<float>> feature_outputs_;
-  ScoreMatrix scores_matrix_;
-  int epoch_;
-  int max_beam_size_;
-  int max_batch_size_;
-  int model_batch_size_;
 };
 
 
@@ -618,69 +571,91 @@ public:
   explicit BeamParserOutput(TaskContext *context) {
   }
 
-  void Compute(TaskContext *context) {
-    BatchState *batch_state = nullptr;
-    int batch_size = 32;  // Get value from context.
-    int num_actions = 10;
+  void Compute(TaskContext *context, BatchState *batch_state) {
+    batch_size_ = batch_state->BatchSize();
+    num_actions_ = batch_state->NumActions();
 
-    // Vectors for output.
-    //
-    // Each step of each batch: path gets its index computed and a
-    // unique path id assigned.
-    std::vector<int32_t> indices;
-    std::vector<int32_t> path_ids;
+    // Clear.
+    indices_.clear();
+    beam_ids_.clear();
+    slot_ids_.clear();
 
-    // Each unique path gets a batch id and a slot (in the beam)
-    // id. These are in effect the row and column of the final
-    // 'logits' matrix going to CrossEntropy.
-    std::vector<int32_t> beam_ids;
-    std::vector<int32_t> slot_ids;
+    path_ids_.clear();
+    path_scores_.clear();
 
-    // To compute the cross entropy we also need the slot id of the
-    // gold path , one per batch.
-    std::vector<int32_t> gold_slot(batch_size, -1);
+    gold_slot_.clear();
+    gold_slot_.resize(batch_size_);
 
-    // For good measure we also output the path scores as computed by
-    // the beam decoder, so it can be compared in tests with the path
-    // scores computed via the indices in TF. This has the same length
-    // as beam_ids and slot_ids.
-    std::vector<float> path_scores;
+    beam_step_sizes_.clear();
+    beam_step_sizes_.resize(batch_size_);
 
+    std::fill(gold_slot_.begin(), gold_slot_.end(), -1);
     // The scores tensor has, conceptually, four dimensions: 1. number of steps,
     // 2. batch size, 3. number of paths on the beam at that step, and 4. the number
     // of actions scored. However this is not a true tensor since the size of the
     // beam at each step may not be equal among all steps and among all batches.
     // Only the batch size and number of actions are fixed.
     int path_id = 0;
-    for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
+    for (int beam_id = 0; beam_id < batch_size_; ++beam_id) {
       // This occurs at the end of the corpus, when there aren't enough
       // sentences to fill the batch.
-      if (batch_state->Beam(beam_id).gold_ == nullptr) continue;
+      if (batch_state->Beam(beam_id).gold_ == nullptr) {
+        // LOG(INFO) << "beam_id:[" << beam_id << "] is nullptr.";
+        continue;
+      }
 
       int slot = 0;
       for (const auto &item : batch_state->Beam(beam_id).slots_) {
-        beam_ids.push_back(beam_id);
-        slot_ids.push_back(slot);
-        path_scores.push_back(item.first.first);
+        beam_ids_.push_back(beam_id);
+        slot_ids_.push_back(slot);
+        path_scores_.push_back(item.first.first);
 
         if (item.second->state->is_gold()) {
-          CHECK_EQ(gold_slot[beam_id], -1);
-          gold_slot[beam_id] = slot;
+          CHECK_EQ(gold_slot_[beam_id], -1);
+          gold_slot_[beam_id] = slot;
         }
 
+        // LOG(INFO) << "beam_id:[" << beam_id << "], slot_history.size:[" << item.second->slot_history.size() << "]";
+        beam_step_sizes_[beam_id] = item.second->slot_history.size();
         for (size_t step = 0; step < item.second->slot_history.size(); ++step) {
-          const int step_beam_offset = batch_state->GetOffset(step, beam_id);
+          // const int step_beam_offset = batch_state->GetOffset(step, beam_id);
           const int slot_index = item.second->slot_history[step];
           const int action_index = item.second->action_history[step];
-          indices.push_back(num_actions * (step_beam_offset + slot_index) +
+          indices_.push_back(num_actions_ * (beam_id + slot_index) +
                             action_index);
-          path_ids.push_back(path_id);
+          path_ids_.push_back(path_id);
         }
         ++slot;
         ++path_id;
       }
     }
   }
+
+public:
+  // Each step of each batch: path gets its index computed and a
+  // unique path id assigned.
+  std::vector<int32_t> indices_;
+  std::vector<int32_t> path_ids_;
+  // Each unique path gets a batch id and a slot (in the beam)
+  // id. These are in effect the row and column of the final
+  // 'logits' matrix going to CrossEntropy.
+  std::vector<int32_t> beam_ids_;
+  std::vector<int32_t> slot_ids_;
+  // To compute the cross entropy we also need the slot id of the
+  // gold path , one per batch.
+  std::vector<int32_t> gold_slot_;
+
+  std::vector<int32_t> beam_step_sizes_;
+
+  // For good measure we also output the path scores as computed by
+  // the beam decoder, so it can be compared in tests with the path
+  // scores computed via the indices in TF. This has the same length
+  // as beam_ids and slot_ids.
+  std::vector<float> path_scores_;
+
+
+  int batch_size_;  
+  int num_actions_;
 };
 
 // Computes eval metrics for the best path in the input beams.

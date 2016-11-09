@@ -38,7 +38,9 @@ set(SOURCE_FILES src/io/text_formats.h src/utils/utils.h src/utils/utils.cc
         src/mxnet-cpp/optimizer.cc
         src/mxnet-cpp/symbol.cc
         src/model/greedy_parser.cc
-        src/cli_main.cc
+        src/beam_reader_ops.h
+        src/model/structured_parser.cc
+        src/beam_parser_test.cc
         )
 
 LINK_DIRECTORIES(lib)

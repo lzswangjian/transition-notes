@@ -47,11 +47,13 @@ class GreedyParser {
 
   Symbol BuildNetwork();
 
+  Symbol AddCostSymbol();
+
   inline bool IsParameter(const string &name) {
     return utils::StringEndWith(name, "weight") || utils::StringEndWith(name, "bias");
   }
 
-  void SetupModel();
+  virtual void SetupModel();
 
  public:
   void TrainOneBatch(std::vector<std::vector<mx_float>> &features,

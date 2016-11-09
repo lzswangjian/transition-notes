@@ -31,7 +31,7 @@ GreedyParser::GreedyParser(int num_actions,
   learning_rate_ = 0.1;
   weight_decay_ = 1e-4;
   max_grad_norm_ = 5.0;
-  batch_size_ = 32;
+  batch_size_ = 1;
   step_ = 0;
 }
 
@@ -78,15 +78,21 @@ Symbol GreedyParser::BuildNetwork() {
   }
 
   // Create Softmax layer.
-  auto label = Symbol::Variable("label");
+
   auto softmax_weight = Symbol::Variable("softmax_weight");
   auto softmax_bias = Symbol::Variable("softmax_bias");
   auto fc = FullyConnected("softmax_fc", last_layer, softmax_weight, softmax_bias, num_actions_);
+  return fc;
+}
+
+Symbol GreedyParser::AddCostSymbol() {
+  Symbol fc = BuildNetwork();
+  Symbol label = Symbol::Variable("label");
   return SoftmaxOutput("softmax", fc, label);
 }
 
 void GreedyParser::SetupModel() {
-  network_symbol_ = BuildNetwork();
+  network_symbol_ = AddCostSymbol();
   Context context_ = Context::cpu();
 
   for (mx_uint i = 0; i < feature_size_; ++i) {
