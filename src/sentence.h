@@ -92,10 +92,10 @@ public:
     Sentence() {}
 
     ~Sentence() {
-        for (size_t i = 0; i != token_size(); ++i) {
-            delete token_[i];
-        }
-        token_.clear();
+//        for (size_t i = 0; i != token_size(); ++i) {
+//            delete token_[i];
+//        }
+//        token_.clear();
     }
 
 

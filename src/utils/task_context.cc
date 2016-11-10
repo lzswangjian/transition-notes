@@ -101,6 +101,14 @@ bool TaskContext::Supports(const TaskInput &input, const string &file_format,
     return false;
 }
 
+void TaskContext::SetMode(bool is_train) {
+    train = is_train;
+}
+
+bool TaskContext::GetMode() const {
+    return train;
+}
+
 
 
 

@@ -1,7 +1,7 @@
 #include "structured_parser.h"
 
 StructuredParser::StructuredParser(int batch_size)
-  : GreedyParser(batch_size) {
+  : GreedyParser(batch_size), compute_context_(DeviceType::kCPU, 0) {
   // Do Initialization
   max_steps_ = 25;
   beam_size_ = 4;
@@ -14,17 +14,24 @@ StructuredParser::StructuredParser(int batch_size,
                                    vector<int> &num_feature_ids,
                                    vector<int> &embedding_sizes,
                                    vector<int> &hidden_layer_sizes)
-: GreedyParser(num_actions, num_features, num_feature_ids, embedding_sizes, hidden_layer_sizes) {
+: GreedyParser(num_actions, num_features, num_feature_ids, embedding_sizes, hidden_layer_sizes),
+  compute_context_(DeviceType::kCPU, 0) {
   batch_size_ =batch_size;
   max_steps_ = 25;
   beam_size_ = 4;
-  epoch_ = 1;
+  epoch_ = 4;
   scoreMatrixDptr = new float[batch_size_ * beam_size_ * num_actions_];
+
 }
 
 StructuredParser::~StructuredParser() {
   if (scoreMatrixDptr != nullptr) {
     delete[] scoreMatrixDptr;
+  }
+  for (size_t i = 0; i < exec_list_.size(); ++i) {
+    if (exec_list_[i] != nullptr) {
+      delete exec_list_[i];
+    }
   }
 }
 
@@ -85,13 +92,13 @@ int StructuredParser::TrainIter() {
     outputs[0].SyncCopyToCPU(scoreMatrix.data_ptr_, size);
     // PopulateFeatureOutputs & Get All Beam States.
     feature_outputs.clear();
-    beam_parser_->Compute(context, beam_reader_->batch_state_.get(), scoreMatrix,
-                          feature_outputs, all_alive);
+    beam_parser_->Compute(context, beam_reader_->batch_state_.get(),
+                          scoreMatrix, feature_outputs, all_alive);
     Padding(feature_outputs);
 
     accumulate_steps += 1;
   }
-  // LOG(INFO) << "accumulate_steps: [" << accumulate_steps << "]";
+  LOG(INFO) << "accumulate_steps: [" << accumulate_steps << "]";
 
   // Make Cross Entropy Loss and Compute Grads.
   beam_parser_output_->Compute(context, beam_reader_->batch_state_.get());
@@ -165,7 +172,7 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
 
   // Create Head Grad NDArray.
   for (int i = 0; i < accumulate_steps; ++i) {
-    NDArray t(Shape(batch_size_ * beam_size_, num_actions_), Context::cpu(), false);
+    NDArray t(Shape(batch_size_ * beam_size_, num_actions_), compute_context_, false);
     t.SyncCopyFromCPU(step_head_grads[i].data(), batch_size_ * beam_size_ * num_actions_);
     step_head_ndarray.push_back(t);
   }
@@ -223,4 +230,71 @@ void StructuredParser::BuildSequence() {
               map<string, NDArray>(), grad_req_type_);
       exec_list_[i] = exec;
   }
+}
+
+void StructuredParser::SaveModel(const std::string &param_path) {
+  map<string, NDArray> param_map;
+  for (int i = 0; i < arg_names_.size(); ++i) {
+    if (IsParameter(arg_names_[i])) {
+      param_map[arg_names_[i]] = args_map_[arg_names_[i]];
+    }
+  }
+  NDArray::Save(param_path, param_map);
+}
+
+void StructuredParser::ConfigEvalModel(const string &param_path) {
+  Context context_ = Context::cpu();
+  Symbol s = BuildNetwork();
+  SetupModel(s);
+
+  map<string, NDArray> param_map = NDArray::LoadToMap(param_path);
+  for (auto iter = param_map.begin(); iter != param_map.end(); ++iter) {
+    args_map_[iter->first] = iter->second;
+  }
+
+  exec_ = s.SimpleBind(context_, args_map_,
+                                map<string, NDArray>(), grad_req_type_);
+}
+
+int StructuredParser::PredictOneBatch(int max_steps, vector<string> &documents) {
+  int accumulate_steps = 0;
+  bool all_alive = true;
+
+  // Forward
+  int epoch;
+  vector<vector<float>> feature_outputs;
+  beam_reader_->Compute(context, feature_outputs, epoch);
+  if (epoch >= epoch_) {
+    return epoch;
+  }
+  Padding(feature_outputs);
+  while (accumulate_steps < max_steps && all_alive) {
+    // Prepare Batch Data.
+    for (mx_uint i = 0; i < feature_size_; ++i) {
+      string key = "feature_" + utils::Printf(i) + "_data";
+      exec_->arg_dict()[key].SyncCopyFromCPU(feature_outputs[i]);
+      exec_->arg_dict()[key].WaitToRead();
+    }
+    // Do forward prediction.
+    exec_->Forward(false);
+
+    vector<NDArray> outputs = exec_->outputs;
+    // Convert output into score_matrix.
+    ScoreMatrix scoreMatrix;
+    size_t size = outputs[0].Size();
+    scoreMatrix.data_ptr_ = scoreMatrixDptr;  // Change to Fixed Array.
+    scoreMatrix.row_ = batch_size_ * beam_size_;
+    scoreMatrix.col_ = num_actions_;
+    outputs[0].SyncCopyToCPU(scoreMatrix.data_ptr_, size);
+    // PopulateFeatureOutputs & Get All Beam States.
+    feature_outputs.clear();
+    beam_parser_->Compute(context, beam_reader_->batch_state_.get(),
+                          scoreMatrix, feature_outputs, all_alive);
+    Padding(feature_outputs);
+
+    accumulate_steps += 1;
+  }
+  LOG(INFO) << "accumulate_steps: [" << accumulate_steps << "]";
+  beam_eval_output_->Compute(context, beam_reader_->batch_state_.get(), documents);
+  return epoch;
 }

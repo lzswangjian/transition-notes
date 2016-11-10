@@ -49,6 +49,9 @@ public:
   static bool Supports(const TaskInput &input, const string &file_format,
                        const string &record_format);
 
+  void SetMode(bool is_train);
+  bool GetMode() const;
+
 private:
   // Underlying task specification protocol buffer.
   TaskSpec spec_;
@@ -56,6 +59,8 @@ private:
   // Vector of parameters required by this task. These must be specified in
   // the task rather than relying on default values.
   vector<string> required_parameters_;
+
+  bool train;
 };
 
 #endif /* TASK_CONTEXT_H */

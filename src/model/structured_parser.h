@@ -67,6 +67,11 @@ class StructuredParser : public GreedyParser {
 
   void CreateOptimizer(const std::string &opt = "ccsgd");
 
+  void SaveModel(const std::string &param_path);
+
+  int PredictOneBatch(int max_steps, vector<string> &documents);
+  void ConfigEvalModel(const std::string &param_path);
+
  public:
   int TrainIter();
 
@@ -74,11 +79,15 @@ class StructuredParser : public GreedyParser {
   BeamParseReader *beam_reader_ = nullptr;
   BeamParser *beam_parser_ = nullptr;
   BeamParserOutput *beam_parser_output_ = nullptr;
+  BeamEvalOutput *beam_eval_output_ = nullptr;
+
   int max_steps_;
   int beam_size_;
   std::vector<Executor *> exec_list_;
   TaskContext *context = nullptr; // Not Owned.
   float *scoreMatrixDptr = nullptr; // Owned.
+
+  Context compute_context_;
 };
 
 #endif

@@ -233,7 +233,7 @@ public:
 private:
   // Creates a new ParserState if there's another sentence to be read.
   void AdvanceSentence() {
-    // LOG(INFO) << "Advance Sentence [" << beam_id_ << "]";
+    LOG(INFO) << "Advance Sentence [" << beam_id_ << "]";
     gold_.reset();
     if (sentence_batch_->AdvanceSentence(beam_id_)) {
       gold_.reset(new ParserState(sentence_batch_->sentence(beam_id_),
@@ -500,9 +500,12 @@ public:
   explicit BeamParseReader(TaskContext *context) {
     BatchStateOptions options;
     options.max_beam_size = 4;
-    options.batch_size = 4;
+    options.batch_size = 1;
     options.corpus_name = "training-corpus";
     options.arg_prefix = "beam_parser";
+    if (!context->GetMode()) {
+      options.continue_until_all_final = true;
+    }
     
     // Create batch state.
     batch_state_.reset(new BatchState(options));
@@ -664,13 +667,13 @@ public:
   explicit BeamEvalOutput(TaskContext *context) {
   }
 
-  void Compute(TaskContext *context) {
+  void Compute(TaskContext *context, BatchState *batch_state, vector<string> &output) {
     int num_tokens = 0;
     int num_correct = 0;
     int all_final = 0;
-    BatchState *batch_state = nullptr;
-    const int batch_size = batch_state->BatchSize();
+
     vector<Sentence> documents;
+    const int batch_size = batch_state->BatchSize();
     for (int beam_id = 0; beam_id < batch_size; ++beam_id) {
       if (batch_state->Beam(beam_id).gold_ != nullptr &&
           batch_state->Beam(beam_id).AllFinal()) {
@@ -681,6 +684,12 @@ public:
         item.second->state->AddParseToDocument(&documents.back());
       }
     }
+    for (size_t i = 0; i < documents.size(); ++i) {
+      string key, value;
+      conll.ConvertToString(documents[i], &key, &value);
+      output.push_back(value);
+    }
+
   }
 
 private:
@@ -688,4 +697,6 @@ private:
                             const string &scoring_type,
                             int *num_tokens, int *num_correct) {
   }
+
+  CoNLLSyntaxFormat conll;
 };

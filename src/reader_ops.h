@@ -11,6 +11,7 @@
 #include "utils/shared_store.h"
 #include "parser/arc_standard_transitions.cc"
 #include "model/model_predict.cc"
+#include "model/score_matrix.h"
 
 class ParsingReader {
  public:
