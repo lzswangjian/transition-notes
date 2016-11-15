@@ -7,7 +7,7 @@
 
 #include "../utils/utils.h"
 #include "../utils/task_context.h"
-#include "ScoreMatrix.h"
+#include "score_matrix.h"
 
 /*!
  * \brief Score matrix for output

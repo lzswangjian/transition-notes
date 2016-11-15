@@ -144,7 +144,7 @@ int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
       LOG(INFO) << "embedding dim [" << i << "] " << embedding_dims_[i];
   }
   LOG(INFO) << "num actions " << num_actions;*/
-  vector<int> hidden_layer_sizes_({50, 50});
+  vector<int> hidden_layer_sizes_({200, 200});
 
   // Create GoldParseReader.
   GoldParseReader *gold_reader_ = new GoldParseReader(context);
@@ -154,9 +154,9 @@ int TestParserEmbeddingFeatureExtractor(int argc, char *argv[]) {
 
   parser.BuildNetwork();
   parser.SetupModel();
-  string symbol_path = "models/symbol-0001.json";
-  string param_path = "models/param-0001.params";
-  int epoch = 1;
+  string symbol_path = "models/greedy-symbol-0010.json";
+  string param_path = "models/greedy-param-0010.params";
+  int epoch = 10;
   int iter = 1;
   while (true) {
     gold_reader_->Compute();

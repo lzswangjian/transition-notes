@@ -73,7 +73,7 @@ class ParsingReader {
 
       // Switches to the next sentence if we're at a final state.
       while (transition_system_->IsFinalState(*state(i))) {
-        VLOG(2) << "Advance sentence " << i;
+        // VLOG(2) << "Advance sentence " << i;
         AdvanceSentence(i);
         if (state(i) == nullptr) {
           break;  // EOF has been reached.

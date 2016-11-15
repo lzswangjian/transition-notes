@@ -12,7 +12,7 @@ void TestReaderOP(int argc, char *argv[]) {
   TaskInput *input = spec->add_input();
   input->set_name("training-corpus");
   TaskInput::Part *input_part = input->add_part();
-  input_part->set_file_pattern("test/dev.conll.utf8");
+  input_part->set_file_pattern("test/dev");
 
   TaskInput *label_map_input = spec->add_input();
   label_map_input->set_name("label-map");
@@ -40,6 +40,8 @@ void TestReaderOP(int argc, char *argv[]) {
   TaskSpec::Parameter *embedding_dims = spec->add_parameter();
   embedding_dims->set_name("beam_parser_embedding_dims");
   embedding_dims->set_value("64;32;32");
+
+  context->SetMode(true);
 
   // Init ParserEmbeddingFeatureExtractor.
   ParserEmbeddingFeatureExtractor *features_ = new ParserEmbeddingFeatureExtractor("beam_parser");
@@ -77,9 +79,9 @@ void TestReaderOP(int argc, char *argv[]) {
 //      LOG(INFO) << "embedding dim [" << i << "] " << embedding_dims_[i];
 //  }
   LOG(INFO) << "num actions " << num_actions;
-  vector<int> hidden_layer_sizes_({50, 50});
+  vector<int> hidden_layer_sizes_({200, 200});
 
-  int batch_size = 4;
+  int batch_size = 1;
   StructuredParser *structured_parser = new StructuredParser(batch_size, num_actions, feature_sizes_,
                                                              domain_sizes_, embedding_dims_, hidden_layer_sizes_);
   BeamParseReader *beam_reader = new BeamParseReader(context);
@@ -95,15 +97,17 @@ void TestReaderOP(int argc, char *argv[]) {
   structured_parser->CreateOptimizer();
   structured_parser->BuildSequence();
   // structured_parser->InitFreshParameters();
-  structured_parser->InitWithPreTrainedParameters("models/param-0001.params");
+  structured_parser->InitWithPreTrainedParameters("models/greedy-param-0010.params");
 
   // Start Training.
   while (1) {
     int epoch = structured_parser->TrainIter();
-    if (epoch >= 4) {
+    if (epoch >= 2) {
         break;
     }
   }
+
+  structured_parser->SaveModel("models/beam-param-0006.params");
 
   cout << "Can not stop?" << endl;
 
@@ -184,7 +188,7 @@ void TestEval(int argc, char *argv[]) {
   int num_actions = transition_system_->NumActions(label_map->Size());
 
   LOG(INFO) << "num actions " << num_actions;
-  vector<int> hidden_layer_sizes_({50, 50});
+  vector<int> hidden_layer_sizes_({200, 200});
 
   int batch_size = 1;
   StructuredParser *structured_parser = new StructuredParser(batch_size, num_actions, feature_sizes_,
@@ -201,7 +205,7 @@ void TestEval(int argc, char *argv[]) {
   structured_parser->beam_eval_output_ = beam_eval_output;
   structured_parser->context = context;
 
-  structured_parser->ConfigEvalModel("models/param-0001.params");
+  structured_parser->ConfigEvalModel("models/beam-param-0006.params");
   int max_steps = 300;
   int num_epoch = 1;
   vector<string> parsed_sentence;
@@ -225,7 +229,7 @@ void TestEval(int argc, char *argv[]) {
 
 
 int main(int argc, char *argv[]) {
-  // TestReaderOP(argc, argv);
-  TestEval(argc, argv);
+  TestReaderOP(argc, argv);
+  // TestEval(argc, argv);
   return 0;
 }

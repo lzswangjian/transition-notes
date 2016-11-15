@@ -394,7 +394,7 @@ public:
     int slice_size = slice_offset * NumActions();
     slice_score.data_ptr_ = new float[slice_size];
     for (int i = 0; i < slice_size; ++i) {
-      slice_score.data_ptr_[i] = scores.data_ptr_[slice_offset * beam_id + i];
+      slice_score.data_ptr_[i] = scores.data_ptr_[slice_offset * beam_id * NumActions() + i];
     }
     slice_score.row_ = slice_offset;
     slice_score.col_ = NumActions();
@@ -499,13 +499,11 @@ class BeamParseReader {
 public:
   explicit BeamParseReader(TaskContext *context) {
     BatchStateOptions options;
-    options.max_beam_size = 4;
+    options.max_beam_size = 2;
     options.batch_size = 1;
     options.corpus_name = "training-corpus";
     options.arg_prefix = "beam_parser";
-    if (!context->GetMode()) {
-      options.continue_until_all_final = true;
-    }
+    options.continue_until_all_final = !context->GetMode();
     
     // Create batch state.
     batch_state_.reset(new BatchState(options));

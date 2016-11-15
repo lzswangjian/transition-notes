@@ -29,9 +29,10 @@ GreedyParser::GreedyParser(int num_actions,
   decay_steps_ = 4000;
   epoch_ = 10;
   learning_rate_ = 0.1;
+  decay_rate_ = 0.96;
   weight_decay_ = 1e-4;
   max_grad_norm_ = 5.0;
-  batch_size_ = 1;
+  batch_size_ = 32;
   step_ = 0;
 }
 
@@ -93,7 +94,7 @@ Symbol GreedyParser::AddCostSymbol() {
 
 void GreedyParser::SetupModel() {
   network_symbol_ = AddCostSymbol();
-  Context context_ = Context::cpu();
+  Context context_ = Context::gpu(0);
 
   for (mx_uint i = 0; i < feature_size_; ++i) {
     string key = "feature_" + utils::Printf(i) + "_data";
@@ -168,7 +169,7 @@ void GreedyParser::SaveModel(const string &symbol_path, const string &param_path
 }
 
 void GreedyParser::LoadModel(const string &symbol_path, const string &param_path) {
-  Context context_ = Context::cpu();
+  Context context_ = Context::gpu(0);
   network_symbol_ = Symbol::Load(symbol_path);
   for (mx_uint i = 0; i < feature_size_; ++i) {
     string key = "feature_" + utils::Printf(i) + "_data";
