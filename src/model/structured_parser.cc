@@ -16,12 +16,11 @@ StructuredParser::StructuredParser(int batch_size,
                                    vector<int> &hidden_layer_sizes)
 : GreedyParser(num_actions, num_features, num_feature_ids, embedding_sizes, hidden_layer_sizes),
   compute_context_(DeviceType::kCPU, 0) {
-  batch_size_ =batch_size;
+  batch_size_  = batch_size;
   max_steps_ = 25;
   beam_size_ = 4;
-  epoch_ = 4;
+  epoch_ = 10;
   scoreMatrixDptr = new float[batch_size_ * beam_size_ * num_actions_];
-
 }
 
 StructuredParser::~StructuredParser() {
@@ -142,6 +141,7 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
     }
   }
 
+  int indice_offset = 0;
   for (int beam_id = 0; beam_id < batch_size_; ++beam_id) {
     // if (beam_reader_->batch_state_.get()->Beam(beam_id).gold_ == nullptr) continue;
     vector<float> energy;
@@ -155,7 +155,7 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
     }
     vector<float> softmax;
     vector<float> softmax_grad;
-    if (softmax.size() != beam_size_) continue;
+    if (energy.size() != beam_size_) continue;
     Softmax(energy, softmax);
     SoftmaxGrad(softmax, softmax_grad, gold_slot[beam_id]);
 
@@ -164,10 +164,11 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
     // According Beam Search Path to BackPropagate Gradient.
     for (size_t gidx = 0; gidx < softmax_grad.size(); ++gidx) {
       for (size_t step = 0; step < beam_step_size; ++step) {
-        int kidx = beam_id * gidx * beam_step_size;
+        int kidx = gidx * beam_step_size + indice_offset;
         step_head_grads[step][indices[kidx + step]] += softmax_grad[gidx];
       }
     }
+    indice_offset += beam_step_size * softmax_grad.size();
   }
 
   // Create Head Grad NDArray.
@@ -179,15 +180,13 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
 }
 
 void StructuredParser::SetupModel(Symbol symbol) {
-  Context context_ = Context::cpu();
-
   for (mx_uint i = 0; i < feature_size_; ++i) {
     string key = "feature_" + utils::Printf(i) + "_data";
-    args_map_[key] = NDArray(Shape(batch_size_ * beam_size_, num_features_[i]), context_, false);
+    args_map_[key] = NDArray(Shape(batch_size_ * beam_size_, num_features_[i]), compute_context_, false);
   }
 
   // Infer shape.
-  symbol.InferArgsMap(context_, &args_map_, args_map_);
+  symbol.InferArgsMap(compute_context_, &args_map_, args_map_);
   arg_names_ = symbol.ListArguments();
 
   for (int i = 0; i < arg_names_.size(); ++i) {
@@ -209,14 +208,13 @@ void StructuredParser::InitWithPreTrainedParameters(const string &param_path) {
 void StructuredParser::InitFreshParameters() {
   for (int i = 0; i < arg_names_.size(); ++i) {
       if (IsParameter(arg_names_[i])) {
-          NDArray::SampleUniform(-0.2, 0.2, &args_map_[arg_names_[i]]);
+          NDArray::SampleUniform(-0.02, 0.02, &args_map_[arg_names_[i]]);
       }
   }
 }
 
 void StructuredParser::BuildSequence() {
     // Genreate `max_steps_` greedy network.
-  Context context_ = Context::cpu();
   bool has_inferred_args = false;
   exec_list_.resize(max_steps_);
   for (size_t i = 0; i < max_steps_; ++i) {
@@ -226,7 +224,7 @@ void StructuredParser::BuildSequence() {
           SetupModel(s);
           has_inferred_args = true;
       }
-      Executor *exec = s.SimpleBind(context_, args_map_,
+      Executor *exec = s.SimpleBind(compute_context_, args_map_,
               map<string, NDArray>(), grad_req_type_);
       exec_list_[i] = exec;
   }
@@ -243,7 +241,6 @@ void StructuredParser::SaveModel(const std::string &param_path) {
 }
 
 void StructuredParser::ConfigEvalModel(const string &param_path) {
-  Context context_ = Context::cpu();
   Symbol s = BuildNetwork();
   SetupModel(s);
 
@@ -252,7 +249,7 @@ void StructuredParser::ConfigEvalModel(const string &param_path) {
     args_map_[iter->first] = iter->second;
   }
 
-  exec_ = s.SimpleBind(context_, args_map_,
+  exec_ = s.SimpleBind(compute_context_, args_map_,
                                 map<string, NDArray>(), grad_req_type_);
 }
 

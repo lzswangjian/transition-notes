@@ -82,7 +82,7 @@ public:
   // The agenda is keyed by a tuple that is the score followed by an int
   // that is -1 if the path coincides with the gold path and 0 otherwise.
   // The lexicographic ordering of the keys therefore ensures that for all
-  // pahts sharing the same score, the gold path will always be at the
+  // paths sharing the same score, the gold path will always be at the
   // bottom.
   typedef std::pair<double, int> KeyType;
   typedef std::multimap<KeyType, std::unique_ptr<ParserStateWithHistory>> AgendaType;
@@ -162,13 +162,6 @@ public:
 
     int slot = 0;
     for (AgendaItem &item : previous_slots) {
-      {
-        ParserState *current = item.second->state.get();
-        VLOG(2) << "Slot: " << slot;
-        VLOG(2) << "Parser state: " << current->ToString();
-        VLOG(2) << "Parser state cumulative score:  " << item.first.first << " "
-                << (item.first.second < 0 ? "golden" : "");
-      }
       if (!transition_system_->IsFinalState(*item.second->state)) {
         // Not a final state.
         for (int action = 0; action < num_actions; ++action) {
@@ -188,6 +181,15 @@ public:
       ++slot;
     }
     UpdateAllFinal();
+
+    // For Debug Usage.
+    for (AgendaItem &item : slots_) {
+      ParserState *current = item.second->state.get();
+      VLOG(2) << "Slot: " << slot;
+      VLOG(2) << "Parser state: " << current->ToString();
+      VLOG(2) << "Parser state cumulative score:  " << item.first.first << " "
+              << (item.first.second < 0 ? "golden" : "");
+    }
   }
 
   void PopulateFeatureOutputs(vector<vector<vector<SparseFeatures>>> *features) {
@@ -390,14 +392,15 @@ public:
     const int offset = beam_offsets_.back()[beam_id];
     // slice scores.
     ScoreMatrix slice_score;
-    int slice_offset = BatchSize() * options_.max_beam_size;
-    int slice_size = slice_offset * NumActions();
-    slice_score.data_ptr_ = new float[slice_size];
+    int num_actions = NumActions();
+    int slice_size = num_actions * options_.max_beam_size;
+    int slice_offset = beam_id * slice_size;
+    slice_score.data_ptr_ = new float[slice_size];  // TODO::Consider change into a fixed memory.
     for (int i = 0; i < slice_size; ++i) {
-      slice_score.data_ptr_[i] = scores.data_ptr_[slice_offset * beam_id + i];
+      slice_score.data_ptr_[i] = scores.data_ptr_[slice_offset + i];
     }
-    slice_score.row_ = slice_offset;
-    slice_score.col_ = NumActions();
+    slice_score.row_ = options_.max_beam_size;
+    slice_score.col_ = num_actions;
     beams_[beam_id].Advance(slice_score);
     delete[] slice_score.data_ptr_;
   }
@@ -500,11 +503,16 @@ public:
   explicit BeamParseReader(TaskContext *context) {
     BatchStateOptions options;
     options.max_beam_size = 4;
-    options.batch_size = 1;
+    options.batch_size = 2;
     options.corpus_name = "training-corpus";
     options.arg_prefix = "beam_parser";
-    if (!context->GetMode()) {
-      options.continue_until_all_final = true;
+    options.continue_until_all_final = !context->GetMode();
+    options.always_start_new_sentences = true;
+    if (options.continue_until_all_final) {
+      LOG(INFO) << "continue_until_all_final";
+    }
+    if (options.always_start_new_sentences) {
+      LOG(INFO) << "always_start_new_sentences";
     }
     
     // Create batch state.
@@ -603,7 +611,6 @@ public:
       // This occurs at the end of the corpus, when there aren't enough
       // sentences to fill the batch.
       if (batch_state->Beam(beam_id).gold_ == nullptr) {
-        // LOG(INFO) << "beam_id:[" << beam_id << "] is nullptr.";
         continue;
       }
 
@@ -618,14 +625,11 @@ public:
           gold_slot_[beam_id] = slot;
         }
 
-        // LOG(INFO) << "beam_id:[" << beam_id << "], slot_history.size:[" << item.second->slot_history.size() << "]";
         beam_step_sizes_[beam_id] = item.second->slot_history.size();
         for (size_t step = 0; step < item.second->slot_history.size(); ++step) {
-          // const int step_beam_offset = batch_state->GetOffset(step, beam_id);
           const int slot_index = item.second->slot_history[step];
           const int action_index = item.second->action_history[step];
-          indices_.push_back(num_actions_ * (beam_id + slot_index) +
-                            action_index);
+          indices_.push_back(num_actions_ * slot_index + action_index);
           path_ids_.push_back(path_id);
         }
         ++slot;
@@ -655,7 +659,6 @@ public:
   // scores computed via the indices in TF. This has the same length
   // as beam_ids and slot_ids.
   std::vector<float> path_scores_;
-
 
   int batch_size_;  
   int num_actions_;

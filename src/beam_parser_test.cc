@@ -12,7 +12,7 @@ void TestReaderOP(int argc, char *argv[]) {
   TaskInput *input = spec->add_input();
   input->set_name("training-corpus");
   TaskInput::Part *input_part = input->add_part();
-  input_part->set_file_pattern("test/dev.conll.utf8");
+  input_part->set_file_pattern("test/dev");
 
   TaskInput *label_map_input = spec->add_input();
   label_map_input->set_name("label-map");
@@ -77,9 +77,10 @@ void TestReaderOP(int argc, char *argv[]) {
 //      LOG(INFO) << "embedding dim [" << i << "] " << embedding_dims_[i];
 //  }
   LOG(INFO) << "num actions " << num_actions;
+  context->SetMode(true);
   vector<int> hidden_layer_sizes_({50, 50});
 
-  int batch_size = 4;
+  int batch_size = 2;
   StructuredParser *structured_parser = new StructuredParser(batch_size, num_actions, feature_sizes_,
                                                              domain_sizes_, embedding_dims_, hidden_layer_sizes_);
   BeamParseReader *beam_reader = new BeamParseReader(context);
@@ -94,18 +95,18 @@ void TestReaderOP(int argc, char *argv[]) {
 
   structured_parser->CreateOptimizer();
   structured_parser->BuildSequence();
-  // structured_parser->InitFreshParameters();
-  structured_parser->InitWithPreTrainedParameters("models/param-0001.params");
+  structured_parser->InitFreshParameters();
+  // structured_parser->InitWithPreTrainedParameters("models/param-0001.params");
 
   // Start Training.
   while (1) {
     int epoch = structured_parser->TrainIter();
-    if (epoch >= 4) {
+    if (epoch >= 3) {
         break;
     }
   }
 
-  cout << "Can not stop?" << endl;
+  cout << "Complete..." << endl;
 
   delete beam_reader;
   delete beam_parser;
@@ -225,7 +226,7 @@ void TestEval(int argc, char *argv[]) {
 
 
 int main(int argc, char *argv[]) {
-  // TestReaderOP(argc, argv);
-  TestEval(argc, argv);
+  TestReaderOP(argc, argv);
+  // TestEval(argc, argv);
   return 0;
 }
