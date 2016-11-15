@@ -18,10 +18,9 @@ StructuredParser::StructuredParser(int batch_size,
   compute_context_(DeviceType::kGPU, 0) {
   batch_size_ =batch_size;
   max_steps_ = 25;
-  beam_size_ = 2;
+  beam_size_ = 4;
   epoch_ = 2;
   scoreMatrixDptr = new float[batch_size_ * beam_size_ * num_actions_];
-
 }
 
 StructuredParser::~StructuredParser() {
@@ -142,6 +141,7 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
     }
   }
 
+  int indice_offset = 0;
   for (int beam_id = 0; beam_id < batch_size_; ++beam_id) {
     // if (beam_reader_->batch_state_.get()->Beam(beam_id).gold_ == nullptr) continue;
     vector<float> energy;
@@ -164,10 +164,11 @@ void StructuredParser::CrossEntropy(vector<NDArray> &step_head_ndarray,
     // According Beam Search Path to BackPropagate Gradient.
     for (size_t gidx = 0; gidx < softmax_grad.size(); ++gidx) {
       for (size_t step = 0; step < beam_step_size; ++step) {
-        int kidx = gidx * beam_step_size + beam_id * softmax_grad.size() * beam_step_size;
+        int kidx = gidx * beam_step_size + indice_offset;
         step_head_grads[step][indices[kidx + step]] += softmax_grad[gidx];
       }
     }
+    indice_offset += beam_step_size * softmax_grad.size();
   }
 
   // Create Head Grad NDArray.
@@ -207,7 +208,7 @@ void StructuredParser::InitWithPreTrainedParameters(const string &param_path) {
 void StructuredParser::InitFreshParameters() {
   for (int i = 0; i < arg_names_.size(); ++i) {
       if (IsParameter(arg_names_[i])) {
-          NDArray::SampleUniform(-0.2, 0.2, &args_map_[arg_names_[i]]);
+          NDArray::SampleUniform(-0.02, 0.02, &args_map_[arg_names_[i]]);
       }
   }
 }

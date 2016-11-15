@@ -79,9 +79,11 @@ void TestReaderOP(int argc, char *argv[]) {
 //      LOG(INFO) << "embedding dim [" << i << "] " << embedding_dims_[i];
 //  }
   LOG(INFO) << "num actions " << num_actions;
+  context->SetMode(true);
   vector<int> hidden_layer_sizes_({200, 200});
 
   int batch_size = 1;
+
   StructuredParser *structured_parser = new StructuredParser(batch_size, num_actions, feature_sizes_,
                                                              domain_sizes_, embedding_dims_, hidden_layer_sizes_);
   BeamParseReader *beam_reader = new BeamParseReader(context);
@@ -96,8 +98,8 @@ void TestReaderOP(int argc, char *argv[]) {
 
   structured_parser->CreateOptimizer();
   structured_parser->BuildSequence();
-  // structured_parser->InitFreshParameters();
-  structured_parser->InitWithPreTrainedParameters("models/greedy-param-0010.params");
+  structured_parser->InitFreshParameters();
+  // structured_parser->InitWithPreTrainedParameters("models/param-0001.params");
 
   // Start Training.
   while (1) {
@@ -108,8 +110,7 @@ void TestReaderOP(int argc, char *argv[]) {
   }
 
   structured_parser->SaveModel("models/beam-param-0006.params");
-
-  cout << "Can not stop?" << endl;
+  cout << "Complete..." << endl;
 
   delete beam_reader;
   delete beam_parser;
